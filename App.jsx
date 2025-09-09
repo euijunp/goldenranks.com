@@ -12,6 +12,7 @@ export default function App() {
   const [loadingError, setLoadingError] = useState(null);
   const [serverStatus, setServerStatus] = useState('checking');
   const [retryCount, setRetryCount] = useState(0);
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isScrolling = useRef(false);
@@ -834,15 +835,41 @@ We may update this privacy policy from time to time.`
               <button
                 type="submit"
                 className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-lg transition-all duration-300 shadow-md relative overflow-hidden group desktop-button flex flex-col items-center justify-center"
+                disabled={!agreeTerms}
               >
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-800 to-yellow-900 transition-all duration-200 group-hover:-translate-y-1">
                   Golden Entry
                 </span>
-		<span className="text-xs text-gray-700 mt-1.5 group-hover:opacity-100 transition-all duration-150 transition-delay-100 desktop-payment-info">
+                <span className="text-xs text-gray-700 mt-1.5 group-hover:opacity-100 transition-all duration-150 transition-delay-100 desktop-payment-info">
                   Secure payment via PayPal • No hidden fees
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-300/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:translate-x-full"></div>
               </button>
+              <div className="mt-3 flex flex-col items-center text-xs text-gray-400">
+                <div className="flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    id="agreeTerms"
+                    checked={agreeTerms}
+                    onChange={e => setAgreeTerms(e.target.checked)}
+                    className="mr-2"
+                    required
+                  />
+                  <label htmlFor="agreeTerms">
+                    By making a payment, you agree to the{' '}
+                    <a
+                      href="#"
+                      onClick={e => {
+                        e.preventDefault();
+                        setShowTerms(true);
+                      }}
+                      className="underline hover:text-gray-300"
+                    >
+                      Terms & Conditions
+                    </a>.
+                  </label>
+                </div>
+              </div>
             </form>
           </div>
         )}

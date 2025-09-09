@@ -236,7 +236,7 @@ app.get('/api/status', (req, res) => {
 
 paypal.configure({
   'mode': 'sandbox',
-  'client_id': 'AZ4L109sFRic_gBGPoiTkEHNCOSC8Jx3t1w-hVjKUdX8-vdmATo5YfPKUMLXQ0YZuo39aTQJM4KjeL',
+  'client_id': 'AZ4L109sFRic_gBGPoiTkEHNCOSC8Jx3t1w-hVjKUdX8-vdmATo5YfPKUMLXQ0YZuo39aTQJM4KZIjeL',
   'client_secret': 'EJ5aAASM0zji23dCWV8T9z-sSSK6tDV7tOQrwrIfApVQEZDBg9eyn2gqBHXleUyRYhVzT8OamRgOdfjh'
 });
 
