@@ -289,7 +289,7 @@ We may update this privacy policy from time to time.`
     const currentAmounts = leaderboard.map(user => Math.floor(user.amount));
     let rank = 1;
     for (const amt of currentAmounts) {
-      if (totalAmount < amt) rank++; // <-- 여기가 수정되었습니다. (<= 에서 < 로 변경)
+      if (totalAmount < amt) rank++;
     }
     return rank;
   }
@@ -464,7 +464,7 @@ We may update this privacy policy from time to time.`
             ) : (
               leaderboard.map((user, index) => (
                 <div
-                  key={index}
+                  key={user.id || index}
                   className={`px-6 py-4 group relative ${
                     index < 10 ? (
                       index === 0 ? 'sparkle-gold' :

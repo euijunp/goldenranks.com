@@ -32,25 +32,30 @@
   from { opacity: 1; max-height: 100px; }
   to { opacity: 0; max-height: 0; }
 }
-.sparkle-gold {
+
+/* ❗️❗️❗️ 아래 4개의 선택자에 자식 선택자(> div)를 추가했습니다. ❗️❗️❗️ */
+.sparkle-gold > div {
   animation: goldSparkle 1.5s infinite ease-in-out;
 }
-.sparkle-silver {
+.sparkle-silver > div {
   animation: silverSparkle 2s infinite ease-in-out;
 }
-.sparkle-bronze {
+.sparkle-bronze > div {
   animation: bronzeSparkle 2.5s infinite ease-in-out;
 }
-.sparkle-highlight {
+.sparkle-highlight > div {
   animation: highlightSparkle 1.8s infinite ease-in-out;
 }
-.sparkle-highlight:nth-child(4) { animation-delay: 0s; }
-.sparkle-highlight:nth-child(5) { animation-delay: 0.15s; }
-.sparkle-highlight:nth-child(6) { animation-delay: 0.3s; }
-.sparkle-highlight:nth-child(7) { animation-delay: 0.45s; }
-.sparkle-highlight:nth-child(8) { animation-delay: 0.6s; }
-.sparkle-highlight:nth-child(9) { animation-delay: 0.75s; }
-.sparkle-highlight:nth-child(10) { animation-delay: 0.9s; }
+/* ❗️❗️❗️ 여기까지 수정되었습니다. ❗️❗️❗️ */
+
+.sparkle-highlight:nth-child(4) > div { animation-delay: 0s; }
+.sparkle-highlight:nth-child(5) > div { animation-delay: 0.15s; }
+.sparkle-highlight:nth-child(6) > div { animation-delay: 0.3s; }
+.sparkle-highlight:nth-child(7) > div { animation-delay: 0.45s; }
+.sparkle-highlight:nth-child(8) > div { animation-delay: 0.6s; }
+.sparkle-highlight:nth-child(9) > div { animation-delay: 0.75s; }
+.sparkle-highlight:nth-child(10) > div { animation-delay: 0.9s; }
+
 @keyframes intensePulse {
   0%, 100% {
     filter: brightness(1);
