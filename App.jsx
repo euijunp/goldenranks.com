@@ -407,7 +407,7 @@ We may update this privacy policy from time to time.`
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
             <h2 className="text-3xl font-bold text-green-400 mb-2">Payment Verified!</h2>
-            <p className="text-gray-300">Your entry has been successfully added to the leaderboard.</p>
+            <p className="text-gray-300">Your contribution is worth its weight in gold! Your spot in the GoldenRanks is secure.</p>
             <p className="mt-4 text-xs text-gray-500">(Click anywhere to close)</p>
         </div>
       )}
@@ -576,9 +576,9 @@ We may update this privacy policy from time to time.`
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                         </svg>
-                                        <span className="font-bold">PayPal Verified</span>
+                                        <span className="font-bold">PayPal Transaction Verified!</span>
                                         <span className="ml-2 text-gray-400 text-xs">
-                                            (...{user.paypal_transaction_id.slice(-4)})
+                                            (XXXXXXXXXXXXX{user.paypal_transaction_id.slice(-4)})
                                         </span>
                                       </div>
                                     ) : (
@@ -586,7 +586,7 @@ We may update this privacy policy from time to time.`
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                          </svg>
-                                         <span>Not Verified</span>
+                                         <span>Not Verified!</span>
                                       </div>
                                     )}
                                   </div>
