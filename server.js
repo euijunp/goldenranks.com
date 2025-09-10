@@ -260,7 +260,7 @@ app.get('/api/leaderboard', (req, res) => {
       details: 'Please try again in a few seconds'
     });
   }
-  db.all(`SELECT name, CAST(ROUND(amount) AS INTEGER) AS amount, created_at FROM leaderboard ORDER BY amount DESC, created_at DESC LIMIT 24`, [], (err, rows) => {
+  db.all(`SELECT id, name, CAST(ROUND(amount) AS INTEGER) AS amount, created_at FROM leaderboard ORDER BY amount DESC, created_at DESC LIMIT 24`, [], (err, rows) => {
     if (err) {
       console.error('Database query error:', err);
       return res.status(500).json({
@@ -445,10 +445,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Database path: ${dbPath}`);
   fixDatabasePermissions();
-  setTimeout(() => {
-    if (!isDatabaseReady && !databaseError) {
-      console.log('Database initialization taking longer than expected. Please check logs.');
-      isDatabaseReady = true;
-    }
-  }, 5000);
 });

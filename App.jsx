@@ -49,28 +49,7 @@ We may update this privacy policy from time to time.`
     if (!dateString) return 'N/A';
 
     try {
-      let date;
-
-      if (typeof dateString === 'number') {
-        date = new Date(dateString);
-      }
-      else if (typeof dateString === 'string') {
-        if (dateString.includes(' ')) {
-          const [datePart, timePart] = dateString.split(' ');
-          const formattedDate = datePart + 'T' + timePart;
-          date = new Date(formattedDate);
-        }
-        else {
-          date = new Date(dateString);
-        }
-      }
-      else if (dateString instanceof Date) {
-        date = dateString;
-      }
-      else {
-        console.error('Unexpected date format:', dateString);
-        return 'N/A';
-      }
+      const date = new Date(dateString);
 
       if (isNaN(date.getTime())) {
         console.error('Invalid date after parsing:', dateString);
@@ -80,7 +59,11 @@ We may update this privacy policy from time to time.`
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     } catch (error) {
       console.error('Error formatting date:', error, 'for value:', dateString);
       return 'N/A';
@@ -306,7 +289,7 @@ We may update this privacy policy from time to time.`
     const currentAmounts = leaderboard.map(user => Math.floor(user.amount));
     let rank = 1;
     for (const amt of currentAmounts) {
-      if (totalAmount <= amt) rank++;
+      if (totalAmount < amt) rank++; // <-- 여기가 수정되었습니다. (<= 에서 < 로 변경)
     }
     return rank;
   }
@@ -591,13 +574,6 @@ We may update this privacy policy from time to time.`
                                     </div>
                                   </div>
                                 )}
-                                <span className={`italic text-[0.75rem] ${
-                                  index < 3 ?
-                                    (index === 0 ? 'text-yellow-400' : index === 1 ? 'text-gray-300' : 'text-amber-400') :
-                                    'text-gray-400'
-                                }`}>
-                                  {index < 3 ? 'Crowned on' : 'Ranked on'} {formatDate(user.created_at)}
-                                </span>
                               </div>
                             </div>
                           </div>
