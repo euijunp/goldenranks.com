@@ -578,7 +578,7 @@ We may update this privacy policy from time to time.`
                                         </svg>
                                         <span className="font-bold">PayPal Transaction Verified!</span>
                                         <span className="ml-2 text-gray-400 text-xs">
-                                            (XXXXXXXXXXXXX{user.paypal_transaction_id.slice(-4)})
+                                            (****{user.paypal_transaction_id.slice(-4)})
                                         </span>
                                       </div>
                                     ) : (
