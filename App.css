@@ -33,7 +33,11 @@
   to { opacity: 0; max-height: 0; }
 }
 
-/* ❗️❗️❗️ 아래 4개의 선택자에 자식 선택자(> div)를 추가했습니다. ❗️❗️❗️ */
+@keyframes wave {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
 .sparkle-gold > div {
   animation: goldSparkle 1.5s infinite ease-in-out;
 }
@@ -46,7 +50,6 @@
 .sparkle-highlight > div {
   animation: highlightSparkle 1.8s infinite ease-in-out;
 }
-/* ❗️❗️❗️ 여기까지 수정되었습니다. ❗️❗️❗️ */
 
 .sparkle-highlight:nth-child(4) > div { animation-delay: 0s; }
 .sparkle-highlight:nth-child(5) > div { animation-delay: 0.15s; }
@@ -55,6 +58,56 @@
 .sparkle-highlight:nth-child(8) > div { animation-delay: 0.6s; }
 .sparkle-highlight:nth-child(9) > div { animation-delay: 0.75s; }
 .sparkle-highlight:nth-child(10) > div { animation-delay: 0.9s; }
+
+.item-hovered::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, 
+    rgba(212, 175, 55, 0) 0%, 
+    rgba(212, 175, 55, 0.1) 50%, 
+    rgba(212, 175, 55, 0) 100%
+  );
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+  z-index: 0;
+}
+.touch-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, 
+    rgba(212, 175, 55, 0) 0%, 
+    rgba(212, 175, 55, 0.1) 50%, 
+    rgba(212, 175, 55, 0) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+  z-index: 0;
+}
+.group:hover::before {
+  opacity: 1;
+}
+
+.text-wave {
+  background-image: linear-gradient(
+    -225deg,
+    #ffd700 0%,
+    #fffacd 29%,
+    #d4af37 67%,
+    #ffffff 100%
+  );
+  background-size: 200% auto;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  text-fill-color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: wave 2s linear infinite;
+}
+
 
 @keyframes intensePulse {
   0%, 100% {

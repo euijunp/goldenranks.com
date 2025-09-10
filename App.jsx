@@ -472,7 +472,9 @@ We may update this privacy policy from time to time.`
                       index === 2 ? 'sparkle-bronze' :
                       'sparkle-highlight'
                     ) : ''
-                  } transition-all duration-300 touch-item`}
+                  } transition-all duration-300 touch-item ${
+                    hoveredIndex === index ? 'item-hovered' : '' // ❗️❗️❗️ [수정] 호버/터치 시 클래스 추가
+                  }`}
                   onMouseEnter={() => setHoveredIndex(index)}
                   onMouseLeave={() => setHoveredIndex(null)}
                   onTouchStart={(e) => handleTouchStart(index, e)}
@@ -535,7 +537,7 @@ We may update this privacy policy from time to time.`
                                 hoveredIndex === index ? 'w-auto' : 'overflow-hidden'
                               }`}>
                                 <span className={`font-bold text-gray-300 block ${
-                                  hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300' : 'overflow-hidden text-ellipsis whitespace-nowrap'
+                                  hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis whitespace-nowrap' // ❗️❗️❗️ [수정] 파도타기 효과 클래스 추가
                                 }`}>
                                   {user.name}
                                 </span>
