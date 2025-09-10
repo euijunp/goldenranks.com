@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import './App.css';
 
 export default function App() {
   const [leaderboard, setLeaderboard] = useState([]);
@@ -419,127 +420,8 @@ We may update this privacy policy from time to time.`
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-gray-200 py-12 px-4 font-sans relative overflow-hidden">
-      <div className="fixed inset-0 pointer-events-none opacity-10" style={{
-        backgroundImage: `radial-gradient(circle, #D4AF37 1px, transparent 1px)`,
-        backgroundSize: '30px 30px'
-      }}></div>
-      <style>
-        {`
-          @keyframes goldSparkle {
-            0%, 100% { opacity: 0.8; filter: brightness(1); }
-            25% { opacity: 0.95; filter: brightness(1.2); }
-            50% { opacity: 1; filter: brightness(1.5); }
-            75% { opacity: 0.95; filter: brightness(1.2); }
-          }
-          @keyframes silverSparkle {
-            0%, 100% { opacity: 0.75; filter: brightness(1); }
-            25% { opacity: 0.9; filter: brightness(1.2); }
-            50% { opacity: 1; filter: brightness(1.5); }
-            75% { opacity: 0.9; filter: brightness(1.2); }
-          }
-          @keyframes bronzeSparkle {
-            0%, 100% { opacity: 0.7; filter: brightness(1); }
-            25% { opacity: 0.85; filter: brightness(1.05); }
-            50% { opacity: 1; filter: brightness(1.3); }
-            75% { opacity: 0.85; filter: brightness(1.05); }
-          }
-          @keyframes highlightSparkle {
-            0%, 100% { opacity: 0.85; filter: brightness(1); }
-            50% { opacity: 1; filter: brightness(1.25); }
-          }
-          @keyframes crownSparkle {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 1; }
-          }
-          @keyframes fadeIn {
-            from { opacity: 0; max-height: 0; }
-            to { opacity: 1; max-height: 100px; }
-          }
-          @keyframes fadeOut {
-            from { opacity: 1; max-height: 100px; }
-            to { opacity: 0; max-height: 0; }
-          }
-          .sparkle-gold {
-            animation: goldSparkle 1.5s infinite ease-in-out;
-          }
-          .sparkle-silver {
-            animation: silverSparkle 2s infinite ease-in-out;
-          }
-          .sparkle-bronze {
-            animation: bronzeSparkle 2.5s infinite ease-in-out;
-          }
-          .sparkle-highlight {
-            animation: highlightSparkle 1.8s infinite ease-in-out;
-          }
-          .sparkle-highlight:nth-child(4) { animation-delay: 0s; }
-          .sparkle-highlight:nth-child(5) { animation-delay: 0.15s; }
-          .sparkle-highlight:nth-child(6) { animation-delay: 0.3s; }
-          .sparkle-highlight:nth-child(7) { animation-delay: 0.45s; }
-          .sparkle-highlight:nth-child(8) { animation-delay: 0.6s; }
-          .sparkle-highlight:nth-child(9) { animation-delay: 0.75s; }
-          .sparkle-highlight:nth-child(10) { animation-delay: 0.9s; }
-          @keyframes intensePulse {
-            0%, 100% {
-              filter: brightness(1);
-              text-shadow: 0 0 2px rgba(255, 215, 0, 0.5);
-            }
-            50% {
-              filter: brightness(1.3);
-              text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 0 15px rgba(255, 215, 0, 0.5);
-            }
-          }
-          .intense-pulse {
-            animation: intensePulse 0.8s infinite ease-in-out;
-          }
-          @keyframes gentlePulse {
-            0%, 100% {
-              filter: brightness(1);
-              text-shadow: none;
-            }
-            50% {
-              filter: brightness(1.15);
-              text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
-            }
-          }
-          .group:hover .animate-gentle-pulse {
-            animation: gentlePulse 1s infinite ease-in-out;
-          }
-          .transition-delay-200 {
-            transition-delay: 0.2s;
-          }
-          @media (min-width: 769px) {
-            .desktop-button {
-              min-height: 44px;
-              padding-top: 0.75rem !important;
-              padding-bottom: 0.75rem !important;
-            }
-            .desktop-payment-info {
-              position: absolute;
-              bottom: 0.5rem;
-              opacity: 0 !important;
-            }
-            .desktop-button:hover .desktop-payment-info {
-              opacity: 1 !important;
-            }
-            .desktop-button span:first-child {
-              position: relative;
-              transform: translateY(0) !important;
-              transition: transform 0.2s ease !important;
-            }
-            .desktop-button:hover span:first-child {
-              transform: translateY(-6px) !important;
-            }
-            .desktop-button:not(:hover) span:first-child {
-              transition: transform 0.1s ease !important;
-            }
-          }
-          @media (hover: none) {
-            .touch-item {
-              touch-action: manipulation;
-            }
-          }
-        `}
-      </style>
+      <div className="fixed inset-0 pointer-events-none opacity-10 background-grid"></div>
+      
       <div className="max-w-3xl mx-auto relative">
         <h1 className="text-5xl font-extrabold text-center mb-2 text-yellow-400 tracking-tight">
           Golden<span className="text-white">Ranks</span>
