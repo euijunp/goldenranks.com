@@ -8,6 +8,8 @@ const fs = require('fs');
 const app = express();
 const PORT = 3001;
 
+const PAYPAL_WEBHOOK_ID = '0W109354GY895094X';
+
 const DB_DIR = '/var/lib/goldenranks';
 const dbPath = '/var/lib/goldenranks/goldenranks.db';
 console.log('Using database at:', dbPath);
@@ -36,6 +38,36 @@ function fixDatabasePermissions() {
 let isDatabaseReady = false;
 let databaseError = null;
 
+function checkDataConsistency(callback) {
+  db.get(`SELECT COUNT(*) AS count FROM leaderboard WHERE amount != CAST(ROUND(amount) AS INTEGER)`, (err, row) => {
+    if (err) {
+      console.error('Error checking data consistency:', err);
+      databaseError = err;
+      isDatabaseReady = false;
+      if (callback) callback(err);
+      return;
+    }
+    if (row.count > 0) {
+      console.log(`Found ${row.count} records with non-integer amounts. Fixing...`);
+      db.run(`UPDATE leaderboard SET amount = CAST(ROUND(amount) AS INTEGER) WHERE amount != CAST(ROUND(amount) AS INTEGER)`, (updateErr) => {
+        if (updateErr) {
+          console.error('Error fixing non-integer amounts:', updateErr);
+          databaseError = updateErr;
+          isDatabaseReady = false;
+        } else {
+          console.log('Data consistency fixed successfully');
+          isDatabaseReady = true;
+        }
+        if (callback) callback(updateErr);
+      });
+    } else {
+      isDatabaseReady = true;
+      if (callback) callback(null);
+    }
+  });
+}
+
+
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
   if (err) {
     console.error('Database connection error:', err);
@@ -44,12 +76,6 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
   } else {
     console.log('Connected to the database');
     db.serialize(() => {
-      db.run(`DROP TABLE IF EXISTS leaderboard_backup; VACUUM;`, (err) => {
-        if (err) {
-          console.error('Critical error dropping backup table:', err);
-          databaseError = err;
-          isDatabaseReady = false;
-        }
         db.get(`SELECT count(*) AS cnt FROM sqlite_master WHERE type='table' AND name='leaderboard'`, (err, row) => {
           if (err) {
             console.error('Error checking table:', err);
@@ -61,177 +87,114 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
             console.log('Creating leaderboard table...');
             db.run(`CREATE TABLE leaderboard (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
-              name TEXT NOT NULL UNIQUE,
+              name TEXT NOT NULL,
               amount INTEGER NOT NULL,
-              transaction_id TEXT NOT NULL,
-              created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )`, (err) => {
-              if (err) {
-                console.error('Error creating table:', err);
-                databaseError = err;
-                isDatabaseReady = false;
+              transaction_id TEXT,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              verified BOOLEAN DEFAULT FALSE,
+              paypal_transaction_id TEXT
+            )`, (createErr) => {
+              if (createErr) {
+                console.error('Error creating table:', createErr);
+                databaseError = createErr;
               } else {
                 isDatabaseReady = true;
                 console.log('Leaderboard table created successfully');
               }
             });
           } else {
-            console.log('Leaderboard table already exists');
-            db.all(`PRAGMA table_info(leaderboard)`, (err, columns) => {
-              if (err) {
-                console.error('Error getting table info:', err);
-                databaseError = err;
-                isDatabaseReady = false;
-                return;
-              }
-              const amountColumn = columns.find(col => col.name === 'amount');
-              const nameConstraint = columns.find(col => col.name === 'name' && col.pk === 1);
-              if (amountColumn && amountColumn.type !== 'INTEGER') {
-                console.log('Converting amount column to INTEGER...');
-                db.run(`DROP TABLE IF EXISTS leaderboard_backup; VACUUM;`, (err) => {
-                  if (err) {
-                    console.error('Error dropping backup table:', err);
-                    databaseError = err;
+            console.log('Leaderboard table already exists. Checking schema...');
+            db.all('PRAGMA table_info(leaderboard)', (infoErr, columns) => {
+                if(infoErr) {
+                    console.error('Error getting table info:', infoErr);
+                    databaseError = infoErr;
                     isDatabaseReady = false;
                     return;
-                  }
-                  db.run(`CREATE TABLE leaderboard_backup AS SELECT id, name, CAST(ROUND(amount) AS INTEGER) AS amount, transaction_id, created_at FROM leaderboard`, (err) => {
-                    if (err) {
-                      console.error('Error creating backup table:', err);
-                      databaseError = err;
-                      isDatabaseReady = false;
-                      return;
-                    }
-                    db.run(`DROP TABLE leaderboard; VACUUM;`, (err) => {
-                      if (err) {
-                        console.error('Error dropping table:', err);
-                        databaseError = err;
-                        isDatabaseReady = false;
-                        return;
-                      }
-                      db.run(`ALTER TABLE leaderboard_backup RENAME TO leaderboard`, (err) => {
-                        if (err) {
-                          console.error('Error renaming table:', err);
-                          databaseError = err;
-                          isDatabaseReady = false;
-                          return;
-                        }
-                        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_name ON leaderboard(name)`, (err) => {
-                          if (err) {
-                            console.error('Error creating index:', err);
-                            databaseError = err;
-                            isDatabaseReady = false;
-                          } else {
-                            console.log('Amount column converted to INTEGER successfully');
-                            checkDataConsistency();
-                          }
-                        });
-                      });
-                    });
-                  });
-                });
-              } else {
-                if (!nameConstraint) {
-                  console.log('Adding UNIQUE constraint to name column...');
-                  db.run(`DROP TABLE IF EXISTS leaderboard_backup; VACUUM;`, (err) => {
-                    if (err) {
-                      console.error('Error dropping backup table for unique constraint:', err);
-                      databaseError = err;
-                      isDatabaseReady = false;
-                      return;
-                    }
-                    db.run(`CREATE TABLE leaderboard_backup AS SELECT id, name, amount, transaction_id, created_at FROM leaderboard GROUP BY name`, (err) => {
-                      if (err) {
-                        console.error('Error creating backup table for unique constraint:', err);
-                        databaseError = err;
-                        isDatabaseReady = false;
-                        return;
-                      }
-                      db.run(`DROP TABLE leaderboard; VACUUM;`, (err) => {
-                        if (err) {
-                          console.error('Error dropping table for unique constraint:', err);
-                          databaseError = err;
-                          isDatabaseReady = false;
-                          return;
-                        }
-                        db.run(`ALTER TABLE leaderboard_backup RENAME TO leaderboard`, (err) => {
-                          if (err) {
-                            console.error('Error renaming table for unique constraint:', err);
-                            databaseError = err;
-                            isDatabaseReady = false;
-                            return;
-                          }
-                          db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_name ON leaderboard(name)`, (err) => {
-                            if (err) {
-                              console.error('Error creating unique index:', err);
-                              databaseError = err;
-                              isDatabaseReady = false;
-                            } else {
-                              console.log('UNIQUE constraint added to name column successfully');
-                              checkDataConsistency();
-                            }
-                          });
-                        });
-                      });
-                    });
-                  });
-                } else {
-                  checkDataConsistency();
                 }
-              }
+
+                const afterMigration = () => {
+                    const tasks = [];
+                    const hasVerified = columns.some(col => col.name === 'verified');
+                    const hasPaypalId = columns.some(col => col.name === 'paypal_transaction_id');
+
+                    if (!hasVerified) {
+                        tasks.push(new Promise((resolve, reject) => {
+                            db.run('ALTER TABLE leaderboard ADD COLUMN verified BOOLEAN DEFAULT FALSE', (alterErr) => {
+                                if (alterErr) return reject(alterErr);
+                                console.log('Added verified column');
+                                resolve();
+                            });
+                        }));
+                    }
+                    if (!hasPaypalId) {
+                        tasks.push(new Promise((resolve, reject) => {
+                            db.run('ALTER TABLE leaderboard ADD COLUMN paypal_transaction_id TEXT', (alterErr) => {
+                                if (alterErr) return reject(alterErr);
+                                console.log('Added paypal_transaction_id column');
+                                resolve();
+                            });
+                        }));
+                    }
+
+                    Promise.all(tasks).then(() => {
+                        console.log('Schema verification complete. Checking data consistency...');
+                        checkDataConsistency((consistencyErr) => {
+                            if (!consistencyErr) {
+                                console.log('Database is ready.');
+                            }
+                        });
+                    }).catch(migrationErr => {
+                        console.error('Error during schema migration:', migrationErr);
+                        databaseError = migrationErr;
+                    });
+                };
+                
+                const amountColumn = columns.find(col => col.name === 'amount');
+                if (amountColumn && amountColumn.type !== 'INTEGER') {
+                    console.log('Amount column type is not INTEGER. Migrating...');
+                    db.exec(`
+                        CREATE TABLE leaderboard_backup AS SELECT * FROM leaderboard;
+                        DROP TABLE leaderboard;
+                        CREATE TABLE leaderboard (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT NOT NULL,
+                            amount INTEGER NOT NULL,
+                            transaction_id TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            verified BOOLEAN DEFAULT FALSE,
+                            paypal_transaction_id TEXT
+                        );
+                        INSERT INTO leaderboard (id, name, amount, transaction_id, created_at)
+                        SELECT id, name, CAST(ROUND(amount) AS INTEGER), transaction_id, created_at FROM leaderboard_backup;
+                        DROP TABLE leaderboard_backup;
+                    `, (execErr) => {
+                        if (execErr) {
+                            console.error('Failed to migrate amount column type:', execErr);
+                            databaseError = execErr;
+                        } else {
+                            console.log('Amount column migrated to INTEGER successfully.');
+                            afterMigration();
+                        }
+                    });
+                } else {
+                    afterMigration();
+                }
             });
           }
         });
-      });
     });
   }
 });
 
-function checkDataConsistency() {
-  db.get(`SELECT COUNT(*) AS count FROM leaderboard WHERE amount != CAST(ROUND(amount) AS INTEGER)`, (err, row) => {
-    if (err) {
-      console.error('Error checking data consistency:', err);
-      databaseError = err;
-      isDatabaseReady = false;
-      return;
-    }
-    if (row.count > 0) {
-      console.log(`Found ${row.count} records with non-integer amounts. Fixing...`);
-      db.run(`UPDATE leaderboard SET amount = CAST(ROUND(amount) AS INTEGER) WHERE amount != CAST(ROUND(amount) AS INTEGER)`, (err) => {
-        if (err) {
-          console.error('Error fixing non-integer amounts:', err);
-          databaseError = err;
-          isDatabaseReady = false;
-        } else {
-          console.log('Data consistency fixed successfully');
-          isDatabaseReady = true;
-        }
-      });
-    } else {
-      isDatabaseReady = true;
-    }
-  });
-}
-
 app.get('/api/status', (req, res) => {
   if (databaseError) {
     console.error('Database error:', databaseError);
-    return res.status(500).json({
-      status: 'error',
-      message: 'Database connection failed',
-      error: databaseError.message
-    });
+    return res.status(500).json({ status: 'error', message: 'Database connection failed', error: databaseError.message });
   }
   if (!isDatabaseReady) {
-    return res.status(503).json({
-      status: 'maintenance',
-      message: 'Database is initializing'
-    });
+    return res.status(503).json({ status: 'maintenance', message: 'Database is initializing' });
   }
-  res.json({
-    status: 'ok',
-    message: 'Server is ready'
-  });
+  res.json({ status: 'ok', message: 'Server is ready' });
 });
 
 paypal.configure({
@@ -240,205 +203,154 @@ paypal.configure({
   'client_secret': 'EJ5aAASM0zji23dCWV8T9z-sSSK6tDV7tOQrwrIfApVQEZDBg9eyn2gqBHXleUyRYhVzT8OamRgOdfjh'
 });
 
-app.use(cors({
-  origin: 'https://goldenranks.com',
-  credentials: true
-}));
+app.use(cors({ origin: 'https://goldenranks.com', credentials: true }));
+
+app.post('/api/webhook/paypal', bodyParser.raw({ type: 'application/json' }), (req, res) => {
+    const webhookEvent = JSON.parse(req.body.toString());
+    const headers = req.headers;
+
+    paypal.notification.webhookEvent.verify(headers, webhookEvent, PAYPAL_WEBHOOK_ID, function (error, response) {
+        if (error) {
+            console.error('Webhook verification failed:', error.response || error);
+            res.status(400).send('Webhook verification failed.');
+            return;
+        }
+        
+        if (response.verification_status === 'SUCCESS') {
+            const event = webhookEvent.resource;
+            if (webhookEvent.event_type === 'PAYMENT.SALE.COMPLETED') {
+                const transactionId = event.id;
+                
+                const fullInvoiceNumber = event.invoice_number;
+                if (!fullInvoiceNumber || !fullInvoiceNumber.includes('__')) {
+                    console.error('Webhook Error: Invalid invoice_number format.');
+                    return res.status(400).send('Invalid invoice_number format.');
+                }
+                const name = fullInvoiceNumber.split('__')[0];
+                
+                const sql = `UPDATE leaderboard SET verified = TRUE WHERE paypal_transaction_id = ? AND verified = FALSE AND name = ?`;
+                const params = [transactionId, name];
+
+                db.run(sql, params, function(err) {
+                    if (err) {
+                        console.error('DB Error on webhook processing (UPDATE):', err);
+                    } else if (this.changes === 0) {
+                        console.warn(`Webhook received for transaction ${transactionId}, but no matching unverified entry was found.`);
+                    } else {
+                        console.log(`Leaderboard entry updated to VERIFIED for transaction: ${transactionId}`);
+                    }
+                });
+            }
+            res.status(200).send('Webhook received and processed.');
+        } else {
+            console.error('Webhook verification status not SUCCESS.');
+            res.status(400).send('Webhook verification status not SUCCESS.');
+        }
+    });
+});
+
 app.use(bodyParser.json());
 
 app.get('/api/leaderboard', (req, res) => {
-  if (databaseError) {
-    console.error('Database error when fetching leaderboard:', databaseError);
-    return res.status(500).json({
-      error: 'Database connection failed',
-      details: databaseError.message
-    });
-  }
-  if (!isDatabaseReady) {
-    return res.status(503).json({
-      error: 'Database is initializing',
-      details: 'Please try again in a few seconds'
-    });
-  }
-  db.all(`SELECT id, name, CAST(ROUND(amount) AS INTEGER) AS amount, created_at FROM leaderboard ORDER BY amount DESC, created_at DESC LIMIT 24`, [], (err, rows) => {
+  if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
+
+  const sql = `
+    SELECT
+      name,
+      SUM(amount) as amount,
+      MAX(created_at) as created_at,
+      MIN(verified) as verified,
+      MAX(paypal_transaction_id) as paypal_transaction_id
+    FROM leaderboard
+    WHERE verified = TRUE
+    GROUP BY name
+    ORDER BY amount DESC, created_at DESC
+    LIMIT 24;
+  `;
+  
+  db.all(sql, [], (err, rows) => {
     if (err) {
       console.error('Database query error:', err);
-      return res.status(500).json({
-        error: 'Database query failed',
-        details: err.message
-      });
+      return res.status(500).json({ error: 'Database query failed', details: err.message });
     }
-    console.log(`Fetched ${rows.length} leaderboard entries`);
+    console.log(`Fetched and aggregated ${rows.length} leaderboard entries`);
     res.json(rows);
   });
 });
 
-function checkDuplicateName(name, callback) {
-  if (databaseError || !isDatabaseReady) {
-    return callback(0);
-  }
-  db.get(`SELECT amount FROM leaderboard WHERE name = ?`, [name], (err, row) => {
-    if (err) {
-      console.error('Error checking duplicate name:', err);
-      return callback(0);
-    } else {
-      callback(row ? row.amount : 0);
-    }
-  });
-}
-
 app.post('/api/create-payment', (req, res) => {
-  if (databaseError) {
-    console.error('Database error when creating payment:', databaseError);
-    return res.status(500).json({
-      error: 'Database connection failed',
-      details: databaseError.message
-    });
-  }
-  if (!isDatabaseReady) {
-    return res.status(503).json({
-      error: 'Database is initializing',
-      details: 'Please try again in a few seconds'
-    });
-  }
+  if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
   const { name, amount } = req.body;
-  if (!name || name.length > 64) {
-    return res.status(400).json({
-      error: 'Invalid name',
-      details: 'Name must be between 1 and 64 characters'
-    });
-  }
+  if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid name' });
   const amountInt = parseInt(amount);
-  if (!amount || isNaN(amountInt) || amountInt < 1 || amountInt > 1000000 || amountInt.toString() !== amount.toString()) {
-    return res.status(400).json({
-      error: 'Invalid amount',
-      details: 'Amount must be an integer between 1 and 1000000'
-    });
-  }
-  const description = `Leaderboard entry for ${name.substring(0, 100)} ($${amountInt})`;
+  if (isNaN(amountInt) || amountInt < 1 || amountInt > 1000000) return res.status(400).json({ error: 'Invalid amount' });
+  
+  const uniqueInvoiceNumber = `${name}__${Date.now()}`;
+
   const create_payment_json = {
     "intent": "sale",
-    "payer": {
-      "payment_method": "paypal"
-    },
+    "payer": { "payment_method": "paypal" },
     "redirect_urls": {
-      "return_url": "https://goldenranks.com/payment/success",
-      "cancel_url": "https://goldenranks.com/payment/cancel"
+      "return_url": "https://goldenranks.com/",
+      "cancel_url": "https://goldenranks.com/"
     },
     "transactions": [{
-      "item_list": {
-        "items": [{
-          "name": "GoldenRanks Entry",
-          "sku": "001",
-          "price": amountInt.toString(),
-          "currency": "USD",
-          "quantity": 1
-        }]
-      },
-      "amount": {
-        "currency": "USD",
-        "total": amountInt.toString()
-      },
-      "description": description
+      "amount": { "currency": "USD", "total": amountInt.toString() },
+      "description": `Leaderboard entry for ${name}`,
+      "invoice_number": uniqueInvoiceNumber
     }]
   };
+
   paypal.payment.create(create_payment_json, function (error, payment) {
     if (error) {
       console.error('PayPal API Error:', error);
-      return res.status(500).json({
-        error: 'Payment creation failed',
-        details: error.message
-      });
+      return res.status(500).json({ error: 'Payment creation failed' });
     } else {
-      const approvalUrl = payment.links.find(link => link.rel === 'approval_url').href;
-      res.json({
-        paymentId: payment.id,
-        approvalUrl,
-        name,
-        amount: amountInt
-      });
+      res.json({ approvalUrl: payment.links.find(link => link.rel === 'approval_url').href });
     }
   });
 });
 
 app.get('/api/execute-payment', (req, res) => {
-  if (databaseError) {
-    console.error('Database error when executing payment:', databaseError);
-    return res.status(500).json({
-      error: 'Database connection failed',
-      details: databaseError.message
-    });
-  }
-  if (!isDatabaseReady) {
-    return res.status(503).json({
-      error: 'Database is initializing',
-      details: 'Please try again in a few seconds'
-    });
-  }
-  const { paymentId, payerId, name, amount } = req.query;
-  if (!name || name.length > 64) {
-    return res.status(400).json({
-      error: 'Invalid name',
-      details: 'Name must be between 1 and 64 characters'
-    });
-  }
-  const amountInt = parseInt(amount);
-  if (isNaN(amountInt) || amountInt < 1 || amountInt.toString() !== amount.toString()) {
-    return res.status(400).json({
-      error: 'Invalid amount',
-      details: 'Amount must be a positive integer'
-    });
-  }
-  const execute_payment_json = {
-    "payer_id": payerId,
-    "transactions": [{
-      "amount": {
-        "currency": "USD",
-        "total": amountInt.toString()
-      }
-    }]
-  };
-  paypal.payment.execute(paymentId, execute_payment_json, function (error, payment) {
-    if (error) {
-      console.error('PayPal Execute Error:', error);
-      return res.status(500).json({
-        error: 'Payment execution failed',
-        details: error.message
-      });
-    } else {
-      const transactionId = payment.id;
-      checkDuplicateName(name, (existingAmount) => {
-        let totalAmount;
-        let sql, params;
-        if (existingAmount > 0) {
-          totalAmount = existingAmount + amountInt;
-          sql = `UPDATE leaderboard SET amount = ?, transaction_id = ?, created_at = CURRENT_TIMESTAMP WHERE name = ?`;
-          params = [totalAmount, transactionId, name];
+    if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
+    const { paymentId, PayerID, amount } = req.query;
+    
+    const execute_payment_json = {
+        "payer_id": PayerID,
+        "transactions": [{ "amount": { "currency": "USD", "total": amount.toString() } }]
+    };
+
+    paypal.payment.execute(paymentId, execute_payment_json, function (error, payment) {
+        if (error) {
+            console.error('PayPal Execute Error:', error.response || error);
+            return res.status(500).json({ error: 'Payment execution failed' });
         } else {
-          totalAmount = amountInt;
-          sql = `INSERT INTO leaderboard (name, amount, transaction_id) VALUES (?, ?, ?)`;
-          params = [name, totalAmount, transactionId];
+            try {
+                const fullInvoiceNumber = payment.transactions[0].invoice_number;
+                if (!fullInvoiceNumber || !fullInvoiceNumber.includes('__')) {
+                    throw new Error('Invalid invoice_number format in payment execution response.');
+                }
+                const name = fullInvoiceNumber.split('__')[0];
+                const paidAmount = payment.transactions[0].amount.total;
+                const transactionId = payment.transactions[0].related_resources[0].sale.id;
+
+                const sql = `INSERT INTO leaderboard (name, amount, paypal_transaction_id, verified) VALUES (?, ?, ?, FALSE)`;
+                const params = [name, paidAmount, transactionId];
+
+                db.run(sql, params, function(insertErr) {
+                    if (insertErr) {
+                        console.error('DB Error on execute-payment (INSERT):', insertErr);
+                        return res.json({ success: true, message: 'Payment executed, but DB entry failed. Webhook will reconcile.' });
+                    }
+                    console.log(`Leaderboard PENDING entry created for user: ${name}, transaction: ${transactionId}`);
+                    res.json({ success: true });
+                });
+            } catch (e) {
+                console.error('Error processing successful payment:', e);
+                res.status(500).json({ error: 'Payment processed but failed to record. Please contact support.' });
+            }
         }
-        db.run(sql, params, function(err) {
-          if (err) {
-            console.error('DB Error:', err);
-            return res.status(500).json({
-              error: 'Database error',
-              details: err.message
-            });
-          }
-          console.log(`Successfully added user ${name} with amount ${totalAmount} to leaderboard`);
-          res.json({
-            success: true,
-            transactionId,
-            name,
-            amount: totalAmount,
-            timestamp: new Date().toISOString()
-          });
-        });
-      });
-    }
-  });
+    });
 });
 
 app.listen(PORT, () => {

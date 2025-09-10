@@ -14,12 +14,17 @@ export default function App() {
   const [serverStatus, setServerStatus] = useState('checking');
   const [retryCount, setRetryCount] = useState(0);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  
+  const [paymentVerificationStatus, setPaymentVerificationStatus] = useState('idle'); 
+
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const isScrolling = useRef(false);
   const touchTimer = useRef(null);
   const lastTouchTime = useRef(0);
   const retryTimeout = useRef(null);
+  const verificationInterval = useRef(null);
+
   const termsContent = `GoldenRanks Terms & Conditions
 Last updated: September 6, 2030
 1. Introduction
@@ -47,29 +52,41 @@ We may update this privacy policy from time to time.`
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-
     try {
       const date = new Date(dateString);
-
       if (isNaN(date.getTime())) {
         console.error('Invalid date after parsing:', dateString);
         return 'N/A';
       }
-
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
       const seconds = String(date.getSeconds()).padStart(2, '0');
-
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     } catch (error) {
       console.error('Error formatting date:', error, 'for value:', dateString);
       return 'N/A';
     }
-  }
+  };
 
+  const loadLeaderboard = () => {
+    setLoadingError(null);
+    fetch('/api/leaderboard')
+      .then(response => {
+        if (!response.ok) { throw new Error(`Failed to load leaderboard: ${response.status}`); }
+        return response.json();
+      })
+      .then(data => {
+        setLeaderboard(Array.isArray(data) ? data : []);
+      })
+      .catch(error => {
+        console.error('Failed to load leaderboard:', error);
+        setLoadingError(error.message);
+      });
+  };
+  
   const checkServerStatus = async () => {
     setLoadingError(null);
     try {
@@ -166,83 +183,7 @@ We may update this privacy policy from time to time.`
 
       return false;
     }
-  }
-
-  const loadLeaderboard = () => {
-    setLoadingError(null);
-    fetch('/api/leaderboard')
-      .then(response => {
-        if (!response.ok && response.status === 503) {
-          setServerStatus('initializing');
-          setLoadingError('Server is initializing. Please wait...');
-
-          const newRetryCount = retryCount + 1;
-          setRetryCount(newRetryCount);
-
-          const retryDelay = Math.min(30000, 2000 * Math.pow(2, newRetryCount));
-
-          clearTimeout(retryTimeout.current);
-          retryTimeout.current = setTimeout(() => {
-            loadLeaderboard();
-          }, retryDelay);
-
-          throw new Error(`Failed to load leaderboard: ${response.status}`);
-        }
-
-        if (!response.ok && response.status === 500) {
-          setServerStatus('error');
-          setLoadingError('Database connection failed. Please try again later.');
-
-          const newRetryCount = retryCount + 1;
-          setRetryCount(newRetryCount);
-
-          const retryDelay = Math.min(30000, 2000 * Math.pow(2, newRetryCount));
-
-          clearTimeout(retryTimeout.current);
-          retryTimeout.current = setTimeout(() => {
-            loadLeaderboard();
-          }, retryDelay);
-
-          throw new Error(`Failed to load leaderboard: ${response.status}`);
-        }
-
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('Server returned non-JSON response for leaderboard request');
-          setServerStatus('error');
-          setLoadingError('Server is not responding correctly. Please try again later.');
-          throw new Error(`Failed to load leaderboard: Invalid response format`);
-        }
-
-        if (!response.ok) {
-          throw new Error(`Failed to load leaderboard: ${response.status}`);
-        }
-
-        return response.json();
-      })
-      .then(data => {
-        if (!Array.isArray(data)) {
-          if (data.leaderboard && Array.isArray(data.leaderboard)) {
-            setLeaderboard(data.leaderboard);
-          } else {
-            setLeaderboard([]);
-            setLoadingError("Invalid leaderboard data format");
-          }
-          return;
-        }
-        setLeaderboard(data);
-        setRetryCount(0);
-      })
-      .catch(error => {
-        console.error('Failed to load leaderboard:', error);
-        setLoadingError(error.message);
-
-        if (error.message.includes('500') || error.message.includes('503')) {
-        } else {
-          setRetryCount(0);
-        }
-      });
-  }
+  };
 
   useEffect(() => {
     checkServerStatus();
@@ -250,13 +191,84 @@ We may update this privacy policy from time to time.`
     return () => {
       clearInterval(timer);
       clearTimeout(retryTimeout.current);
+      clearInterval(verificationInterval.current);
     };
   }, []);
 
+  useEffect(() => {
+    const executeAndVerifyPayment = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentId = urlParams.get('paymentId');
+      const payerId = urlParams.get('PayerID');
+
+      if (!paymentId || !payerId) {
+        return;
+      }
+
+      setPaymentVerificationStatus('verifying');
+      const pendingUserJSON = localStorage.getItem('pendingUser');
+      if (!pendingUserJSON) {
+        setPaymentVerificationStatus('failed');
+        return;
+      }
+      
+      const pendingUser = JSON.parse(pendingUserJSON);
+
+      try {
+        const executeResponse = await fetch(`/api/execute-payment?paymentId=${paymentId}&PayerID=${payerId}&amount=${pendingUser.amount}`);
+        if (!executeResponse.ok) {
+          throw new Error('Payment execution failed on server.');
+        }
+
+        const executeResult = await executeResponse.json();
+        if (!executeResult.success) {
+          throw new Error('Payment execution not successful.');
+        }
+
+        console.log('Payment executed. Starting verification polling...');
+
+        let attempts = 0;
+        const maxAttempts = 15;
+
+        verificationInterval.current = setInterval(async () => {
+          attempts++;
+          const leaderboardResponse = await fetch('/api/leaderboard');
+          const latestLeaderboard = await leaderboardResponse.json();
+          const myEntry = latestLeaderboard.find(
+            user => user.name === pendingUser.name && user.amount >= pendingUser.amount && user.verified
+          );
+
+          if (myEntry) {
+            console.log('Verification successful!');
+            setLeaderboard(latestLeaderboard);
+            setPaymentVerificationStatus('verified');
+            clearInterval(verificationInterval.current);
+            localStorage.removeItem('pendingUser');
+            window.history.replaceState({}, document.title, window.location.pathname);
+          } else if (attempts >= maxAttempts) {
+            console.log('Verification timed out.');
+            clearInterval(verificationInterval.current);
+            setPaymentVerificationStatus('failed');
+            localStorage.removeItem('pendingUser');
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }, 2000);
+
+      } catch (error) {
+        console.error('Verification process error:', error);
+        setPaymentVerificationStatus('failed');
+        localStorage.removeItem('pendingUser');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+
+    executeAndVerifyPayment();
+  }, []);
+  
   const checkDuplicateName = (name) => {
     const existingUser = leaderboard.find(user => user.name === name);
     return existingUser ? existingUser.amount : 0;
-  }
+  };
 
   const handleNameChange = (e) => {
     let value = e.target.value;
@@ -265,9 +277,9 @@ We may update this privacy policy from time to time.`
     }
     setUserName(value);
     if (userAmount) {
-      setEstimatedRank(estimateRank(userAmount));
+      setEstimatedRank(estimateRank(value, userAmount));
     }
-  }
+  };
 
   const handleAmountChange = (e) => {
     let value = e.target.value;
@@ -276,91 +288,68 @@ We may update this privacy policy from time to time.`
       value = '1';
     }
     setUserAmount(value);
-  }
+    if (userName) {
+        setEstimatedRank(estimateRank(userName, value));
+    }
+  };
 
-  const estimateRank = (amount) => {
+  const estimateRank = (name, amount) => {
     if (!amount || isNaN(amount) || amount <= 0) return null;
     const intAmount = Math.floor(parseInt(amount));
+    
     let totalAmount = intAmount;
-    const existingAmount = checkDuplicateName(userName);
-    if (existingAmount) {
-      totalAmount += Math.floor(existingAmount);
+    const existingAmount = checkDuplicateName(name);
+    if (existingAmount > 0) {
+        totalAmount += Math.floor(existingAmount);
     }
-    const currentAmounts = leaderboard.map(user => Math.floor(user.amount));
+
+    const currentAmounts = leaderboard
+        .filter(user => user.name !== name)
+        .map(user => Math.floor(user.amount));
+        
     let rank = 1;
     for (const amt of currentAmounts) {
       if (totalAmount < amt) rank++;
     }
     return rank;
-  }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submission started");
     if (serverStatus !== 'ready') {
       alert('Server is not ready. Please try again later.');
       return;
     }
     if (!userName.trim()) {
-      console.log("Username missing");
       alert('Please enter your name.');
       return;
     }
     const intAmount = parseInt(userAmount);
     if (!userAmount || isNaN(intAmount) || intAmount <= 0) {
-      console.log("Invalid amount:", userAmount);
       alert('Please enter a valid amount (minimum $1).');
       return;
     }
     try {
-      console.log("API request started");
       const response = await fetch('/api/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: userName,
-          amount: intAmount
-        })
+        body: JSON.stringify({ name: userName, amount: intAmount })
       });
 
-      if (!response.ok && (response.status === 500 || response.status === 503)) {
-        alert('Server is busy. Please try again later.');
-        return;
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('Server returned non-JSON response for payment request');
-        alert('Server is not responding correctly. Please try again later.');
-        return;
-      }
-
+      if (!response.ok) { throw new Error('Failed to create payment session'); }
+      
       const data = await response.json();
-      console.log("API response ", data);
-      if (response.status === 500) {
-        console.error("Server internal error:", data);
-        alert('Server error. Please check console for details.');
-        return;
-      }
       if (data.approvalUrl) {
-        console.log("Redirecting to PayPal:", data.approvalUrl);
-        localStorage.setItem('pendingUser', JSON.stringify({
-          name: data.name,
-          amount: data.amount
-        }));
+        localStorage.setItem('pendingUser', JSON.stringify({ name: userName, amount: intAmount }));
         window.location.href = data.approvalUrl;
       } else {
-        console.log("No approvalUrl", data);
-        alert('Failed to create payment session.');
+        alert('Failed to get payment approval URL.');
       }
     } catch (error) {
-      console.error('Payment error details:', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Payment error:', error);
       alert('An error occurred during payment processing.');
     }
-  }
+  };
 
   const handleTouchStart = (index, e) => {
     if (touchTimer.current) {
@@ -405,6 +394,34 @@ We may update this privacy policy from time to time.`
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-gray-200 py-12 px-4 font-sans relative overflow-hidden">
       <div className="fixed inset-0 pointer-events-none opacity-10 background-grid"></div>
       
+      {paymentVerificationStatus === 'verifying' && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-yellow-500 mb-6"></div>
+            <h2 className="text-3xl font-bold text-yellow-400 mb-2">Verifying Your Payment...</h2>
+            <p className="text-gray-300">Please wait, this may take a few seconds.</p>
+        </div>
+      )}
+      {paymentVerificationStatus === 'verified' && (
+         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex flex-col items-center justify-center z-50 backdrop-blur-sm" onClick={() => setPaymentVerificationStatus('idle')}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-green-400 mb-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <h2 className="text-3xl font-bold text-green-400 mb-2">Payment Verified!</h2>
+            <p className="text-gray-300">Your entry has been successfully added to the leaderboard.</p>
+            <p className="mt-4 text-xs text-gray-500">(Click anywhere to close)</p>
+        </div>
+      )}
+      {paymentVerificationStatus === 'failed' && (
+         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex flex-col items-center justify-center z-50 backdrop-blur-sm" onClick={() => setPaymentVerificationStatus('idle')}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-red-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 className="text-3xl font-bold text-red-400 mb-2">Verification Failed</h2>
+            <p className="text-gray-300 text-center">We couldn't verify your payment automatically.<br/>Please check the leaderboard in a minute or contact support.</p>
+            <p className="mt-4 text-xs text-gray-500">(Click anywhere to close)</p>
+        </div>
+      )}
+
       <div className="max-w-3xl mx-auto relative">
         <h1 className="text-5xl font-extrabold text-center mb-2 text-yellow-400 tracking-tight">
           Golden<span className="text-white">Ranks</span>
@@ -464,7 +481,7 @@ We may update this privacy policy from time to time.`
             ) : (
               leaderboard.map((user, index) => (
                 <div
-                  key={user.id || index}
+                  key={user.paypal_transaction_id || index}
                   className={`px-6 py-4 group relative ${
                     index < 10 ? (
                       index === 0 ? 'sparkle-gold' :
@@ -473,7 +490,7 @@ We may update this privacy policy from time to time.`
                       'sparkle-highlight'
                     ) : ''
                   } transition-all duration-300 touch-item ${
-                    hoveredIndex === index ? 'item-hovered' : '' // ❗️❗️❗️ [수정] 호버/터치 시 클래스 추가
+                    hoveredIndex === index ? 'item-hovered' : ''
                   }`}
                   onMouseEnter={() => setHoveredIndex(index)}
                   onMouseLeave={() => setHoveredIndex(null)}
@@ -537,7 +554,7 @@ We may update this privacy policy from time to time.`
                                 hoveredIndex === index ? 'w-auto' : 'overflow-hidden'
                               }`}>
                                 <span className={`font-bold text-gray-300 block ${
-                                  hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis whitespace-nowrap' // ❗️❗️❗️ [수정] 파도타기 효과 클래스 추가
+                                  hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis whitespace-nowrap'
                                 }`}>
                                   {user.name}
                                 </span>
@@ -551,14 +568,27 @@ We may update this privacy policy from time to time.`
                                         {index < 3 ? 'Crowned:' : 'Ranked:'}
                                       </span>
                                       <span className="ml-1">{formatDate(user.created_at)}</span>
+                                      <span className="ml-1.5 text-xs text-gray-500">(UTC+0)</span>
                                     </div>
-                                    <div className="flex items-center">
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <span className="text-yellow-400 font-medium">ID:</span>
-                                      <span className="ml-1">{user.id || 'N/A'}</span>
-                                    </div>
+                                    
+                                    {user.verified && user.paypal_transaction_id ? (
+                                      <div className="flex items-center text-green-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                        <span className="font-bold">PayPal Verified</span>
+                                        <span className="ml-2 text-gray-400 text-xs">
+                                            (...{user.paypal_transaction_id.slice(-4)})
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center text-gray-500">
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                         </svg>
+                                         <span>Not Verified</span>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -653,7 +683,7 @@ We may update this privacy policy from time to time.`
                     onChange={handleAmountChange}
                     onBlur={() => {
                       if (userAmount) {
-                        setEstimatedRank(estimateRank(userAmount));
+                        setEstimatedRank(estimateRank(userName, userAmount));
                       }
                     }}
                     className="pl-10 w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white placeholder-gray-400 transition-all duration-200"
@@ -673,9 +703,9 @@ We may update this privacy policy from time to time.`
                       </div>
                       <div>
                         {checkDuplicateName(userName) > 0 ? (
-                          <p className="text-sm text-gray-200">With this additional amount, you'll be ranked <span className="text-yellow-400 font-bold">#{estimatedRank}</span>!</p>
+                            <p className="text-sm text-gray-200">With this additional amount, you'll be ranked <span className="text-yellow-400 font-bold">#{estimatedRank}</span>!</p>
                         ) : (
-                          <p className="text-sm text-gray-200">With this amount, you'll be ranked <span className="text-yellow-400 font-bold">#{estimatedRank}</span>!</p>
+                            <p className="text-sm text-gray-200">With this amount, you'll be ranked <span className="text-yellow-400 font-bold">#{estimatedRank}</span>!</p>
                         )}
                         {estimatedRank <= 3 && (
                           <p className="text-sm text-yellow-300 mt-1 flex items-center">
@@ -736,11 +766,9 @@ We may update this privacy policy from time to time.`
         <div className="mt-10 border-t border-gray-700 pt-5 text-sm">
           <div className="flex justify-between items-center">
             <div className="paypal-logo-container">
-              {/* PayPal Logo */}
               <a href="https://www.paypal.com" target="_blank" rel="noopener noreferrer">
                 <img src="/PP.png" alt="PayPal Logo" />
               </a>
-              {/* PayPal Logo */}
             </div>
             <div className="flex-grow text-center">
               <div className="flex justify-center space-x-6">
