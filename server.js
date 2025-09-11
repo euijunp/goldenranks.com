@@ -255,16 +255,34 @@ app.get('/api/leaderboard', (req, res) => {
   if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
 
   const sql = `
+    WITH RankedEntries AS (
+      SELECT
+        name,
+        amount,
+        created_at,
+        verified,
+        paypal_transaction_id,
+        ROW_NUMBER() OVER(PARTITION BY name ORDER BY created_at DESC) as rn
+      FROM leaderboard
+      WHERE verified = TRUE
+    ),
+    AggregatedData AS (
+      SELECT
+        name,
+        SUM(amount) as total_amount
+      FROM leaderboard
+      WHERE verified = TRUE
+      GROUP BY name
+    )
     SELECT
-      name,
-      SUM(amount) as amount,
-      MAX(created_at) as created_at,
-      MIN(verified) as verified,
-      MAX(paypal_transaction_id) as paypal_transaction_id
-    FROM leaderboard
-    WHERE verified = TRUE
-    GROUP BY name
-    ORDER BY amount DESC, created_at DESC
+      ad.name,
+      ad.total_amount as amount,
+      re.created_at,
+      re.verified,
+      re.paypal_transaction_id
+    FROM AggregatedData ad
+    JOIN RankedEntries re ON ad.name = re.name AND re.rn = 1
+    ORDER BY amount DESC, re.created_at DESC
     LIMIT 24;
   `;
   

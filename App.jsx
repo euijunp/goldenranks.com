@@ -15,7 +15,11 @@ export default function App() {
   const [retryCount, setRetryCount] = useState(0);
   const [agreeTerms, setAgreeTerms] = useState(false);
   
-  const [paymentVerificationStatus, setPaymentVerificationStatus] = useState('idle'); 
+  const [paymentVerificationStatus, setPaymentVerificationStatus] = useState('idle');  
+  const [showCopyMessage, setShowCopyMessage] = useState(false);
+  const [checkboxError, setCheckboxError] = useState(false);
+  const [hoveredAmountIndex, setHoveredAmountIndex] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -24,11 +28,13 @@ export default function App() {
   const lastTouchTime = useRef(0);
   const retryTimeout = useRef(null);
   const verificationInterval = useRef(null);
+  const formRef = useRef(null);
+  const amountInputRef = useRef(null);
 
-  const termsContent = `GoldenRanks Terms & Conditions
+  const termsContent = `GoldenRanks Terms of Service
 Last updated: September 6, 2030
 1. Introduction
-These Terms and Conditions govern your use of the GoldenRanks website.
+These Terms of Service govern your use of the GoldenRanks website.
 2. Rankings
 The rankings displayed on this website are for entertainment purposes only.
 3. User Submissions
@@ -53,7 +59,8 @@ We may update this privacy policy from time to time.`
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
-      const date = new Date(dateString);
+      // UTC 시간을 올바르게 파싱하기 위해 'Z'를 추가합니다.
+      const date = new Date(dateString.replace(' ', 'T') + 'Z');
       if (isNaN(date.getTime())) {
         console.error('Invalid date after parsing:', dateString);
         return 'N/A';
@@ -186,6 +193,7 @@ We may update this privacy policy from time to time.`
   };
 
   useEffect(() => {
+    setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
     checkServerStatus();
     const timer = setInterval(loadLeaderboard, 30000);
     return () => {
@@ -316,6 +324,14 @@ We may update this privacy policy from time to time.`
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setCheckboxError(false);
+
+    if (!agreeTerms) {
+      setCheckboxError(true);
+      setTimeout(() => setCheckboxError(false), 900);
+      return;
+    }
+
     if (serverStatus !== 'ready') {
       alert('Server is not ready. Please try again later.');
       return;
@@ -390,6 +406,32 @@ We may update this privacy policy from time to time.`
   const handleTouchEnd = () => {
   };
 
+  const handleShare = () => {
+    navigator.clipboard.writeText('https://goldenranks.com');
+    setShowCopyMessage(true);
+    setTimeout(() => setShowCopyMessage(false), 2000);
+  };
+
+  const isRecent = (dateString) => {
+    if (!dateString) return false;
+    // UTC 문자열을 올바르게 Date 객체로 변환
+    const entryDate = new Date(dateString.replace(' ', 'T') + 'Z');
+    const now = new Date();
+    const oneHour = 60 * 60 * 1000;
+    // 현재 시간(클라이언트 기준)과 항목 시간(UTC)의 차이 계산
+    return (now.getTime() - entryDate.getTime()) < oneHour;
+  };
+  
+  const handlePumpItUpClick = (user) => {
+    setShowForm(true);
+    setUserName(user.name);
+    setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        amountInputRef.current?.focus();
+        amountInputRef.current?.select();
+    }, 100);
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-gray-200 py-12 px-4 font-sans relative overflow-hidden">
       <div className="fixed inset-0 pointer-events-none opacity-10 background-grid"></div>
@@ -421,20 +463,40 @@ We may update this privacy policy from time to time.`
             <p className="mt-4 text-xs text-gray-500">(Click anywhere to close)</p>
         </div>
       )}
+      {showCopyMessage && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+              <div className="copy-message copy-message-active">
+                  Link Copied!
+              </div>
+          </div>
+      )}
 
       <div className="max-w-3xl mx-auto relative">
         <h1 className="text-5xl font-extrabold text-center mb-2 text-yellow-400 tracking-tight">
           Golden<span className="text-white">Ranks</span>
         </h1>
-        <p className="text-center text-yellow-300 text-sm mb-8 italic">Where Gold Meets Glory</p>
+        <p className="text-center text-gray-300 text-base mb-8 px-4 font-semibold">All talk. Go ahead and flex.</p>
         <div className="bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-700 relative">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-500 via-yellow-600 to-yellow-500"></div>
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-4 font-bold border-b border-gray-700">
-            <div className="flex items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <span className="text-gray-300">The Golden Leaderboard</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <span className="text-gray-300">The Golden Leaderboard</span>
+              </div>
+              <div className="relative">
+                <button
+                    onClick={handleShare}
+                    className="share-button text-gray-400 hover:text-yellow-400 transition-colors duration-200"
+                    aria-label="Copy link"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                    </svg>
+                </button>
+              </div>
             </div>
           </div>
           <div className="divide-y divide-gray-700">
@@ -491,9 +553,11 @@ We may update this privacy policy from time to time.`
                     ) : ''
                   } transition-all duration-300 touch-item ${
                     hoveredIndex === index ? 'item-hovered' : ''
+                  } ${
+                    isRecent(user.created_at) ? 'recent-entry' : ''
                   }`}
-                  onMouseEnter={() => setHoveredIndex(index)}
-                  onMouseLeave={() => setHoveredIndex(null)}
+                  onMouseEnter={() => !isMobile && setHoveredIndex(index)}
+                  onMouseLeave={() => !isMobile && setHoveredIndex(null)}
                   onTouchStart={(e) => handleTouchStart(index, e)}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
@@ -568,7 +632,6 @@ We may update this privacy policy from time to time.`
                                         {index < 3 ? 'Crowned:' : 'Ranked:'}
                                       </span>
                                       <span className="ml-1">{formatDate(user.created_at)}</span>
-                                      <span className="ml-1.5 text-xs text-gray-500">(UTC+0)</span>
                                     </div>
                                     
                                     {user.verified && user.paypal_transaction_id ? (
@@ -585,8 +648,8 @@ We may update this privacy policy from time to time.`
                                       <div className="flex items-center text-gray-500">
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                         </svg>
-                                         <span>Not Verified!</span>
+                                          </svg>
+                                          <span>Not Verified!</span>
                                       </div>
                                     )}
                                   </div>
@@ -595,16 +658,21 @@ We may update this privacy policy from time to time.`
                               <div className="flex items-center min-w-0 mt-1">
                                 {index < 3 && (
                                   <div className={`mr-3 text-[0.75rem] opacity-100 transition-all duration-300`}>
-                                    <div className={`${
-                                      index === 0 ? 'bg-yellow-400/10 text-yellow-300' :
-                                      index === 1 ? 'bg-gray-400/10 text-gray-300' :
-                                      'bg-amber-400/10 text-amber-300'
-                                    } px-1 py-0.5 rounded-full whitespace-nowrap`}>
-                                      <span className="animate-pulse">
-                                        {index === 0 ? 'GOLDEN KING' : index === 1 ? 'SILVER LORD' : 'BRONZE CHAMPION'}
-                                      </span>
-                                    </div>
+                                      <div className={`rank-badge ${
+                                        index === 0 ? 'rank-gold' :
+                                        index === 1 ? 'rank-silver' :
+                                        'rank-bronze'
+                                      }`}>
+                                        {index === 0 ? 'GOLD' : index === 1 ? 'SILVER' : 'BRONZE'}
+                                      </div>
                                   </div>
+                                )}
+                                {isRecent(user.created_at) && (
+                                    <div className={`mr-3 text-[0.75rem] opacity-100 transition-all duration-300`}>
+                                      <div className="rank-badge rank-golden-update">
+                                        Golden Update!
+                                      </div>
+                                    </div>
                                 )}
                               </div>
                             </div>
@@ -612,11 +680,24 @@ We may update this privacy policy from time to time.`
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center flex-shrink-0 ml-2 transition-all duration-300">
-                      <div className={`font-extrabold text-lg ${
-                        index < 3 ? 'text-yellow-400' : 'text-gray-300'
+                    <div
+                      className="flex items-center flex-shrink-0 ml-2 transition-all duration-300 cursor-pointer"
+                      onClick={(e) => {
+                          e.stopPropagation();
+                          handlePumpItUpClick(user);
+                      }}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onMouseEnter={() => !isMobile && setHoveredAmountIndex(index)}
+                      onMouseLeave={() => !isMobile && setHoveredAmountIndex(null)}
+                    >
+                      <div className={`font-extrabold text-lg transition-colors duration-200 ${
+                          (isMobile && hoveredIndex === index) || (!isMobile && hoveredAmountIndex === index) ? 'text-yellow-400' :
+                          index < 3 ? 'text-yellow-400' : 'text-gray-300'
                       }`}>
-                        ${Math.floor(user.amount).toLocaleString('en-US')}
+                          { (isMobile && hoveredIndex === index) || (!isMobile && hoveredAmountIndex === index)
+                              ? 'Pump it up?' 
+                              : `$${Math.floor(user.amount).toLocaleString('en-US')}`
+                          }
                       </div>
                     </div>
                   </div>
@@ -628,7 +709,12 @@ We may update this privacy policy from time to time.`
         </div>
         {serverStatus === 'ready' && (
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => {
+              setShowForm(!showForm)
+              setTimeout(() => {
+                  formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }, 100);
+            }}
             className="mt-8 w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 font-bold py-4 px-6 rounded-xl text-xl transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02] transform relative overflow-hidden group"
           >
             <span className="relative z-10 flex flex-col items-center">
@@ -643,7 +729,7 @@ We may update this privacy policy from time to time.`
           </button>
         )}
         {serverStatus === 'ready' && showForm && (
-          <div className="mt-8 bg-gray-800 p-6 rounded-xl shadow-xl border border-gray-700 relative overflow-hidden">
+          <div ref={formRef} className="mt-8 bg-gray-800 p-6 rounded-xl shadow-xl border border-gray-700 relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-yellow-500 via-yellow-600 to-yellow-500"></div>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -677,6 +763,7 @@ We may update this privacy policy from time to time.`
                     <span className="text-yellow-400 font-bold text-lg">$</span>
                   </div>
                   <input
+                    ref={amountInputRef}
                     type="text"
                     id="amount"
                     value={userAmount}
@@ -724,38 +811,49 @@ We may update this privacy policy from time to time.`
               </div>
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-lg transition-all duration-300 shadow-md relative overflow-hidden group desktop-button flex flex-col items-center justify-center"
+                className={`w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-lg transition-all duration-300 shadow-md relative overflow-hidden group flex flex-col items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed ${!isMobile ? 'desktop-button' : ''}`}
                 disabled={!agreeTerms}
               >
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-800 to-yellow-900 transition-all duration-200 group-hover:-translate-y-1">
                   Golden Entry
                 </span>
-                <span className="text-xs text-gray-700 mt-1.5 group-hover:opacity-100 transition-all duration-150 transition-delay-100 desktop-payment-info">
+                <span className={`text-xs text-gray-700 mt-1.5 group-hover:opacity-100 transition-all duration-150 transition-delay-100 ${!isMobile ? 'desktop-payment-info' : ''}`}>
                   Secure payment via PayPal • No hidden fees
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-300/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:translate-x-full"></div>
               </button>
-              <div className="mt-3 flex flex-col items-center text-xs text-gray-400">
+              <div className={`pt-2 flex flex-col items-center text-xs text-gray-400 ${checkboxError ? 'checkbox-error-glow' : ''}`}>
                 <div className="flex items-center justify-center">
                   <input
                     type="checkbox"
                     id="agreeTerms"
                     checked={agreeTerms}
                     onChange={e => setAgreeTerms(e.target.checked)}
-                    className="mr-2"
+                    className="mr-2 h-4 w-4 rounded bg-gray-700 border-gray-600 text-yellow-500 focus:ring-yellow-600"
                     required
                   />
                   <label htmlFor="agreeTerms">
-                    By making a payment, you agree to the{' '}
+                    I agree to the{' '}
                     <a
                       href="#"
                       onClick={e => {
                         e.preventDefault();
                         setShowTerms(true);
                       }}
-                      className="underline hover:text-gray-300"
+                      className="underline hover:text-yellow-300 transition-colors"
                     >
-                      Terms & Conditions
+                      Terms of Service
+                    </a>
+                    {' and '}
+                    <a
+                      href="#"
+                      onClick={e => {
+                        e.preventDefault();
+                        setShowPrivacy(true);
+                      }}
+                      className="underline hover:text-yellow-300 transition-colors"
+                    >
+                      Privacy Policy
                     </a>.
                   </label>
                 </div>
@@ -783,7 +881,7 @@ We may update this privacy policy from time to time.`
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
-                  Terms & Conditions
+                  Terms of Service
                 </a>
                 <a
                   href="#"
@@ -815,56 +913,53 @@ We may update this privacy policy from time to time.`
           </div>
         </div>
       </div>
-      {showTerms && (
-        <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-gray-800 bg-opacity-95 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-yellow-500/30 shadow-2xl">
-            <div className="p-7">
-              <div className="flex items-center mb-5">
-                <div className="bg-yellow-500/10 p-2 rounded-lg mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-bold text-yellow-400">Terms & Conditions</h2>
+        <div className={`modal-overlay ${showTerms ? 'visible' : ''}`}>
+          <div className={`modal-container ${showTerms ? 'visible' : ''}`}>
+              <div className="p-7">
+                  <div className="flex flex-col items-center justify-center mb-5 text-center">
+                      <div className="bg-yellow-500/10 p-2 rounded-lg mb-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                      </div>
+                      <h2 className="text-2xl font-bold text-yellow-400">Terms of Service</h2>
+                  </div>
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-gray-300 leading-relaxed">{termsContent}</pre>
+                  <div className="mt-6 text-right flex justify-center items-center">
+                      <button
+                          onClick={() => setShowTerms(false)}
+                          className="bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600 border border-gray-600 px-5 py-2.5 rounded-lg text-gray-200 font-medium transition-all duration-200 transform hover:scale-[1.03]"
+                      >
+                          Close
+                      </button>
+                  </div>
               </div>
-              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-300 leading-relaxed">{termsContent}</pre>
-              <div className="mt-6 text-right flex justify-center items-center">
-                <button
-                  onClick={() => setShowTerms(false)}
-                  className="bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600 border border-gray-600 px-5 py-2.5 rounded-lg text-gray-200 font-medium transition-all duration-200 transform hover:scale-[1.03]"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-      )}
-      {showPrivacy && (
-        <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-gray-800 bg-opacity-95 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto border border-yellow-500/30 shadow-2xl">
-            <div className="p-7">
-              <div className="flex items-center mb-5">
-                <div className="bg-yellow-500/10 p-2 rounded-lg mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <h2 className="text-2xl font-bold text-yellow-400">Privacy Policy</h2>
+        
+        <div className={`modal-overlay ${showPrivacy ? 'visible' : ''}`}>
+          <div className={`modal-container ${showPrivacy ? 'visible' : ''}`}>
+              <div className="p-7">
+                  <div className="flex flex-col items-center justify-center mb-5 text-center">
+                      <div className="bg-yellow-500/10 p-2 rounded-lg mb-3">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                      </div>
+                      <h2 className="text-2xl font-bold text-yellow-400">Privacy Policy</h2>
+                  </div>
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-gray-300 leading-relaxed">{privacyContent}</pre>
+                  <div className="mt-6 text-right flex justify-center items-center">
+                      <button
+                          onClick={() => setShowPrivacy(false)}
+                          className="bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600 border border-gray-600 px-5 py-2.5 rounded-lg text-gray-200 font-medium transition-all duration-200 transform hover:scale-[1.03]"
+                      >
+                          Close
+                      </button>
+                  </div>
               </div>
-              <pre className="whitespace-pre-wrap font-sans text-sm text-gray-300 leading-relaxed">{privacyContent}</pre>
-              <div className="mt-6 text-right flex justify-center items-center">
-                <button
-                  onClick={() => setShowPrivacy(false)}
-                  className="bg-gradient-to-r from-gray-800 to-gray-700 hover:from-gray-700 hover-to-gray-600 border border-gray-600 px-5 py-2.5 rounded-lg text-gray-200 font-medium transition-all duration-200 transform hover:scale-[1.03]"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-      )}
     </main>
   );
 }
