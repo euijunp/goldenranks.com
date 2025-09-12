@@ -159,13 +159,12 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT NOT NULL,
                             amount INTEGER NOT NULL,
-                            transaction_id TEXT,
                             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                             verified BOOLEAN DEFAULT FALSE,
                             paypal_transaction_id TEXT
                         );
-                        INSERT INTO leaderboard (id, name, amount, transaction_id, created_at)
-                        SELECT id, name, CAST(ROUND(amount) AS INTEGER), transaction_id, created_at FROM leaderboard_backup;
+                        INSERT INTO leaderboard (id, name, amount, created_at, verified, paypal_transaction_id)
+                        SELECT id, name, CAST(ROUND(amount) AS INTEGER), created_at, verified, paypal_transaction_id FROM leaderboard_backup;
                         DROP TABLE leaderboard_backup;
                     `, (execErr) => {
                         if (execErr) {

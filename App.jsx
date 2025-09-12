@@ -646,7 +646,6 @@ We may update this privacy policy from time to time.`
                                     Last updated:
                                   </span>
                                   <span className="ml-1">{formatDate(user.created_at)}</span>
-                                  <span className="ml-1">UTC+0</span>
                                 </div>
                                 {user.verified && user.paypal_transaction_id ? (
                                   <div className="flex items-center text-green-400">
