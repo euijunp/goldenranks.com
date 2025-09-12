@@ -59,7 +59,6 @@ We may update this privacy policy from time to time.`
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
-      // UTC 시간을 올바르게 파싱하기 위해 'Z'를 추가합니다.
       const date = new Date(dateString.replace(' ', 'T') + 'Z');
       if (isNaN(date.getTime())) {
         console.error('Invalid date after parsing:', dateString);
@@ -414,11 +413,9 @@ We may update this privacy policy from time to time.`
 
   const isRecent = (dateString) => {
     if (!dateString) return false;
-    // UTC 문자열을 올바르게 Date 객체로 변환
     const entryDate = new Date(dateString.replace(' ', 'T') + 'Z');
     const now = new Date();
     const oneHour = 60 * 60 * 1000;
-    // 현재 시간(클라이언트 기준)과 항목 시간(UTC)의 차이 계산
     return (now.getTime() - entryDate.getTime()) < oneHour;
   };
   
@@ -475,7 +472,8 @@ We may update this privacy policy from time to time.`
         <h1 className="text-5xl font-extrabold text-center mb-2 text-yellow-400 tracking-tight">
           Golden<span className="text-white">Ranks</span>
         </h1>
-        <p className="text-center text-gray-300 text-base mb-8 px-4 font-semibold">All talk. Go ahead and flex.</p>
+        {}
+        <p className="text-center text-gray-300 text-base mb-8 px-4 font-semibold">Rich? All talk. Go ahead and flex.</p>
         <div className="bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-700 relative">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-500 via-yellow-600 to-yellow-500"></div>
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-4 font-bold border-b border-gray-700">
@@ -608,71 +606,65 @@ We may update this privacy policy from time to time.`
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center min-w-0">
-                            <span className="font-bold text-gray-300 mr-4">
-                              {index + 1}.
+                        <div className="flex items-center min-w-0">
+                          <span className="font-bold text-gray-300 mr-4">
+                            {index + 1}.
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <span className={`font-bold text-gray-300 block ${
+                            hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis whitespace-nowrap'
+                            }`}>
+                            {user.name}
                             </span>
-                            <div className="min-w-0 flex-1">
-                              <div className={`min-w-0 overflow-hidden transition-all duration-300 ${
-                                hoveredIndex === index ? 'w-auto' : 'overflow-hidden'
-                              }`}>
-                                <span className={`font-bold text-gray-300 block ${
-                                  hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis whitespace-nowrap'
-                                }`}>
-                                  {user.name}
-                                </span>
-                                {hoveredIndex === index && (
-                                  <div className="mt-1 text-xs text-gray-300 animate-fadeIn">
-                                    <div className="flex items-center mb-1">
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <div className="flex items-center min-w-0 mt-1">
+                              {index < 3 && (
+                                <div className="mr-2 text-[0.75rem]">
+                                    <div className={`rank-badge ${
+                                      index === 0 ? 'rank-gold' :
+                                      index === 1 ? 'rank-silver' :
+                                      'rank-bronze'
+                                    }`}>
+                                      {index === 0 ? 'GOLD' : index === 1 ? 'SILVER' : 'BRONZE'}
+                                    </div>
+                                </div>
+                              )}
+                              {isRecent(user.created_at) && (
+                                <div className="mr-2 text-[0.75rem]">
+                                  <div className="rank-badge rank-new">
+                                    NEW!
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className={`detail-container ${hoveredIndex === index ? 'open' : ''}`}>
+                              <div className="text-xs text-gray-300 mt-2">
+                                <div className="flex items-center mb-1">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span className="text-yellow-400 font-medium">
+                                    Last updated:
+                                  </span>
+                                  <span className="ml-1">{formatDate(user.created_at)}</span>
+                                  <span className="ml-1">UTC+0</span>
+                                </div>
+                                {user.verified && user.paypal_transaction_id ? (
+                                  <div className="flex items-center text-green-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    <span className="font-bold">PayPal Transaction Verified!</span>
+                                    <span className="ml-2 text-gray-400 text-xs">
+                                        (****{user.paypal_transaction_id.slice(-4)})
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center text-gray-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                       </svg>
-                                      <span className="text-yellow-400 font-medium">
-                                        {index < 3 ? 'Crowned:' : 'Ranked:'}
-                                      </span>
-                                      <span className="ml-1">{formatDate(user.created_at)}</span>
-                                    </div>
-                                    
-                                    {user.verified && user.paypal_transaction_id ? (
-                                      <div className="flex items-center text-green-400">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
-                                        <span className="font-bold">PayPal Transaction Verified!</span>
-                                        <span className="ml-2 text-gray-400 text-xs">
-                                            (****{user.paypal_transaction_id.slice(-4)})
-                                        </span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-center text-gray-500">
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                          </svg>
-                                          <span>Not Verified!</span>
-                                      </div>
-                                    )}
+                                      <span>Not Verified!</span>
                                   </div>
-                                )}
-                              </div>
-                              <div className="flex items-center min-w-0 mt-1">
-                                {index < 3 && (
-                                  <div className={`mr-3 text-[0.75rem] opacity-100 transition-all duration-300`}>
-                                      <div className={`rank-badge ${
-                                        index === 0 ? 'rank-gold' :
-                                        index === 1 ? 'rank-silver' :
-                                        'rank-bronze'
-                                      }`}>
-                                        {index === 0 ? 'GOLD' : index === 1 ? 'SILVER' : 'BRONZE'}
-                                      </div>
-                                  </div>
-                                )}
-                                {isRecent(user.created_at) && (
-                                    <div className={`mr-3 text-[0.75rem] opacity-100 transition-all duration-300`}>
-                                      <div className="rank-badge rank-golden-update">
-                                        Golden Update!
-                                      </div>
-                                    </div>
                                 )}
                               </div>
                             </div>

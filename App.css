@@ -24,21 +24,13 @@
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
-@keyframes fadeIn {
-  from { opacity: 0; max-height: 0; }
-  to { opacity: 1; max-height: 100px; }
-}
-@keyframes fadeOut {
-  from { opacity: 1; max-height: 100px; }
-  to { opacity: 0; max-height: 0; }
-}
 @keyframes wave {
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }
 }
 @keyframes recentEntryGlow {
   0%, 100% { background-color: rgba(212, 175, 55, 0.02); }
-  50% { background-color: rgba(212, 175, 55, 0.08); }
+  50% { background-color: rgba(212, 175, 55, 0.05); }
 }
 @keyframes checkboxGlow {
   0%, 100% { box-shadow: 0 0 0px rgba(255, 215, 0, 0); }
@@ -55,10 +47,6 @@
 @keyframes modal-fade-out {
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(0.98); }
-}
-@keyframes goldenUpdateSparkle {
-  0%, 100% { background-color: rgba(205, 150, 50, 0.1); border-color: rgba(205, 150, 50, 0.25); }
-  50% { background-color: rgba(205, 150, 50, 0.18); border-color: rgba(205, 150, 50, 0.4); }
 }
 
 .modal-overlay {
@@ -99,6 +87,18 @@
 
 .recent-entry {
   animation: recentEntryGlow 3s infinite ease-in-out;
+}
+
+.detail-container {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease-out, opacity 0.3s ease-out;
+  will-change: max-height, opacity;
+}
+.detail-container.open {
+  max-height: 100px;
+  opacity: 1;
 }
 
 .checkbox-error-glow > div {
@@ -190,29 +190,25 @@
   white-space: nowrap;
 }
 .rank-gold {
-  background: linear-gradient(to right, rgba(212, 175, 55, 0.15), rgba(255, 223, 0, 0.1));
+  background-color: rgba(212, 175, 55, 0.15);
   border-color: rgba(212, 175, 55, 0.4);
-  color: #FFD700;
-  text-shadow: 0 0 6px rgba(255, 215, 0, 0.5);
+  color: #D4AF37;
 }
 .rank-silver {
-  background: linear-gradient(to right, rgba(192, 192, 192, 0.15), rgba(236, 236, 236, 0.1));
+  background-color: rgba(192, 192, 192, 0.15);
   border-color: rgba(192, 192, 192, 0.4);
-  color: #c8c8c8;
-  text-shadow: 0 0 6px rgba(220, 220, 220, 0.5);
+  color: #c0c0c0;
 }
 .rank-bronze {
-  background: linear-gradient(to right, rgba(205, 127, 50, 0.15), rgba(210, 105, 30, 0.1));
+  background-color: rgba(205, 127, 50, 0.15);
   border-color: rgba(205, 127, 50, 0.4);
-  color: #d89d60;
-  text-shadow: 0 0 6px rgba(205, 127, 50, 0.5);
+  color: #CD7F32;
 }
-.rank-golden-update {
-  background-color: rgba(205, 150, 50, 0.1);
-  border: 1px solid rgba(205, 150, 50, 0.25);
-  color: #c99839;
-  text-shadow: 0 0 4px rgba(205, 150, 50, 0.3);
-  animation: goldenUpdateSparkle 2.5s infinite ease-in-out;
+
+.rank-new {
+  background-color: rgba(156, 163, 175, 0.15);
+  border: 1px solid rgba(156, 163, 175, 0.3);
+  color: #9ca3af;
 }
 
 .share-button {
@@ -321,11 +317,11 @@
 }
 
 .cloudflare-logo-container img {
-  height: 15px;  
+  height: 20px;  
   width: auto;
 }
 
 .paypal-logo-container img {
-  height: 15px;
+  height: 20px;
   width: auto;
 }
