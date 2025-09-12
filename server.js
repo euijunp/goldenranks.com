@@ -148,7 +148,7 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
                         databaseError = migrationErr;
                     });
                 };
-                
+
                 const amountColumn = columns.find(col => col.name === 'amount');
                 if (amountColumn && amountColumn.type !== 'INTEGER') {
                     console.log('Amount column type is not INTEGER. Migrating...');
@@ -185,6 +185,9 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
   }
 });
 
+app.use(cors({ origin: 'https://goldenranks.com', credentials: true }));
+app.use(bodyParser.json());
+
 app.get('/api/status', (req, res) => {
   if (databaseError) {
     console.error('Database error:', databaseError);
@@ -202,7 +205,6 @@ paypal.configure({
   'client_secret': 'EJ5aAASM0zji23dCWV8T9z-sSSK6tDV7tOQrwrIfApVQEZDBg9eyn2gqBHXleUyRYhVzT8OamRgOdfjh'
 });
 
-app.use(cors({ origin: 'https://goldenranks.com', credentials: true }));
 
 app.post('/api/webhook/paypal', bodyParser.raw({ type: 'application/json' }), (req, res) => {
     const webhookEvent = JSON.parse(req.body.toString());
@@ -214,19 +216,19 @@ app.post('/api/webhook/paypal', bodyParser.raw({ type: 'application/json' }), (r
             res.status(400).send('Webhook verification failed.');
             return;
         }
-        
+
         if (response.verification_status === 'SUCCESS') {
             const event = webhookEvent.resource;
             if (webhookEvent.event_type === 'PAYMENT.SALE.COMPLETED') {
                 const transactionId = event.id;
-                
+
                 const fullInvoiceNumber = event.invoice_number;
                 if (!fullInvoiceNumber || !fullInvoiceNumber.includes('__')) {
                     console.error('Webhook Error: Invalid invoice_number format.');
                     return res.status(400).send('Invalid invoice_number format.');
                 }
                 const name = fullInvoiceNumber.split('__')[0];
-                
+
                 const sql = `UPDATE leaderboard SET verified = TRUE WHERE paypal_transaction_id = ? AND verified = FALSE AND name = ?`;
                 const params = [transactionId, name];
 
@@ -247,8 +249,6 @@ app.post('/api/webhook/paypal', bodyParser.raw({ type: 'application/json' }), (r
         }
     });
 });
-
-app.use(bodyParser.json());
 
 app.get('/api/leaderboard', (req, res) => {
   if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
@@ -284,7 +284,7 @@ app.get('/api/leaderboard', (req, res) => {
     ORDER BY amount DESC, re.created_at DESC
     LIMIT 24;
   `;
-  
+
   db.all(sql, [], (err, rows) => {
     if (err) {
       console.error('Database query error:', err);
@@ -295,13 +295,70 @@ app.get('/api/leaderboard', (req, res) => {
   });
 });
 
+app.get('/api/leaderboard/summary', (req, res) => {
+  if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
+
+  const sql = `
+    WITH AggregatedData AS (
+      SELECT
+        SUM(amount) as total_amount
+      FROM leaderboard
+      WHERE verified = TRUE
+      GROUP BY name
+      ORDER BY total_amount DESC
+    )
+    SELECT
+      COUNT(*) as userCount,
+      SUM(total_amount) as totalAmount
+    FROM (
+      SELECT * FROM AggregatedData LIMIT -1 OFFSET 24
+    );
+  `;
+
+  db.get(sql, [], (err, row) => {
+    if (err) {
+      console.error('Database summary query error:', err);
+      return res.status(500).json({ error: 'Database query failed', details: err.message });
+    }
+    res.json(row || { userCount: 0, totalAmount: 0 });
+  });
+});
+
+app.get('/api/db', (req, res) => {
+  if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
+
+  const { page = 1, name = '' } = req.query;
+  const limit = 100;
+  const offset = (parseInt(page, 10) - 1) * limit;
+
+  let sql = `SELECT id, name, amount, created_at, verified, paypal_transaction_id FROM leaderboard`;
+  const params = [];
+
+  if (name) {
+    sql += ` WHERE name LIKE ?`;
+    params.push(`%${name}%`);
+  }
+
+  sql += ` ORDER BY id DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  db.all(sql, params, (err, rows) => {
+    if (err) {
+      console.error('Database full view query error:', err);
+      return res.status(500).json({ error: 'Database query failed', details: err.message });
+    }
+    res.json(rows);
+  });
+});
+
+
 app.post('/api/create-payment', (req, res) => {
   if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
   const { name, amount } = req.body;
   if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid name' });
   const amountInt = parseInt(amount);
   if (isNaN(amountInt) || amountInt < 1 || amountInt > 1000000) return res.status(400).json({ error: 'Invalid amount' });
-  
+
   const uniqueInvoiceNumber = `${name}__${Date.now()}`;
 
   const create_payment_json = {
@@ -331,7 +388,7 @@ app.post('/api/create-payment', (req, res) => {
 app.get('/api/execute-payment', (req, res) => {
     if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
     const { paymentId, PayerID, amount } = req.query;
-    
+
     const execute_payment_json = {
         "payer_id": PayerID,
         "transactions": [{ "amount": { "currency": "USD", "total": amount.toString() } }]
@@ -370,8 +427,23 @@ app.get('/api/execute-payment', (req, res) => {
     });
 });
 
+const distPath = path.join(__dirname, '..', 'goldenranks', 'dist');
+app.use(express.static(distPath));
+
+app.get(/^.*/, (req, res) => {
+  const indexPath = path.join(distPath, 'index.html');
+  console.log(`Serving index.html for path: ${req.path}`);
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    console.error(`index.html not found at path: ${indexPath}`);
+    res.status(404).send('React build not found. Please check the path in server.js');
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Database path: ${dbPath}`);
+  console.log(`[DEBUG] Serving static files from absolute path: ${path.resolve(distPath)}`);
   fixDatabasePermissions();
 });

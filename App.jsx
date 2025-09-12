@@ -1,7 +1,140 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import './App.css';
 
-export default function App() {
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+function DatabaseView() {
+  const [data, setData] = useState([]);
+  const [page, setPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    const url = `/api/db?page=${page}&name=${encodeURIComponent(debouncedSearchTerm)}`;
+
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch database content.');
+        return res.json();
+      })
+      .then(newData => {
+        setData(prevData => (page === 1 ? newData : [...prevData, ...newData]));
+        setHasMore(newData.length === 100);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [page, debouncedSearchTerm]);
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setPage(1);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString.replace(' ', 'T') + 'Z');
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const maskTransactionId = (id) => {
+    if (!id || id.length <= 4) return id || 'N/A';
+    return id.slice(0, -4).replace(/./g, '*') + id.slice(-4);
+  };
+
+  return (
+    <div className="db-view-container">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-extrabold text-yellow-400 mb-2">Golden<span className="text-white">Ranks</span> Database</h1>
+          <p className="text-gray-400">Full transparency of all transactions (latest 100 per page).</p>
+          <a href="/" className="text-yellow-500 hover:underline mt-4 inline-block">&larr; Back to Leaderboard</a>
+        </div>
+
+        <div className="mb-6 max-w-lg mx-auto">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Search by name..."
+            className="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white placeholder-gray-400"
+          />
+        </div>
+
+        <div className="db-table-wrapper">
+          <table className="db-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Timestamp</th>
+                <th>Verified</th>
+                <th>Transaction ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map(row => (
+                <tr key={row.id}>
+                  <td>{row.id}</td>
+                  <td className="font-mono break-all">{row.name}</td>
+                  <td>${row.amount.toLocaleString()}</td>
+                  <td>{formatDate(row.created_at)}</td>
+                  <td>
+                    <span className={row.verified ? 'verified-true' : 'verified-false'}>
+                      {row.verified ? 'Yes' : 'No'}
+                    </span>
+                  </td>
+                  <td className="font-mono">{maskTransactionId(row.paypal_transaction_id)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {loading && <div className="text-center py-4">Loading...</div>}
+        {error && <div className="text-center text-red-400 py-4">{error}</div>}
+
+        {!loading && hasMore && (
+          <div className="text-center mt-6">
+            <button
+              onClick={() => setPage(p => p + 1)}
+              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-2 rounded-lg font-bold transition-colors"
+            >
+              Load More
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MainLeaderboard() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [userName, setUserName] = useState('');
@@ -14,12 +147,13 @@ export default function App() {
   const [serverStatus, setServerStatus] = useState('checking');
   const [retryCount, setRetryCount] = useState(0);
   const [agreeTerms, setAgreeTerms] = useState(false);
-  
-  const [paymentVerificationStatus, setPaymentVerificationStatus] = useState('idle');  
+
+  const [paymentVerificationStatus, setPaymentVerificationStatus] = useState('idle');
   const [showCopyMessage, setShowCopyMessage] = useState(false);
   const [checkboxError, setCheckboxError] = useState(false);
   const [hoveredAmountIndex, setHoveredAmountIndex] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [summary, setSummary] = useState(null);
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -91,8 +225,13 @@ We may update this privacy policy from time to time.`
         console.error('Failed to load leaderboard:', error);
         setLoadingError(error.message);
       });
+
+    fetch('/api/leaderboard/summary')
+      .then(response => response.json())
+      .then(data => setSummary(data))
+      .catch(error => console.error('Failed to load summary:', error));
   };
-  
+
   const checkServerStatus = async () => {
     setLoadingError(null);
     try {
@@ -218,7 +357,7 @@ We may update this privacy policy from time to time.`
         setPaymentVerificationStatus('failed');
         return;
       }
-      
+
       const pendingUser = JSON.parse(pendingUserJSON);
 
       try {
@@ -271,7 +410,7 @@ We may update this privacy policy from time to time.`
 
     executeAndVerifyPayment();
   }, []);
-  
+
   const checkDuplicateName = (name) => {
     const existingUser = leaderboard.find(user => user.name === name);
     return existingUser ? existingUser.amount : 0;
@@ -303,7 +442,7 @@ We may update this privacy policy from time to time.`
   const estimateRank = (name, amount) => {
     if (!amount || isNaN(amount) || amount <= 0) return null;
     const intAmount = Math.floor(parseInt(amount));
-    
+
     let totalAmount = intAmount;
     const existingAmount = checkDuplicateName(name);
     if (existingAmount > 0) {
@@ -313,7 +452,7 @@ We may update this privacy policy from time to time.`
     const currentAmounts = leaderboard
         .filter(user => user.name !== name)
         .map(user => Math.floor(user.amount));
-        
+
     let rank = 1;
     for (const amt of currentAmounts) {
       if (totalAmount < amt) rank++;
@@ -352,7 +491,7 @@ We may update this privacy policy from time to time.`
       });
 
       if (!response.ok) { throw new Error('Failed to create payment session'); }
-      
+
       const data = await response.json();
       if (data.approvalUrl) {
         localStorage.setItem('pendingUser', JSON.stringify({ name: userName, amount: intAmount }));
@@ -418,7 +557,7 @@ We may update this privacy policy from time to time.`
     const oneHour = 60 * 60 * 1000;
     return (now.getTime() - entryDate.getTime()) < oneHour;
   };
-  
+
   const handlePumpItUpClick = (user) => {
     setShowForm(true);
     setUserName(user.name);
@@ -432,7 +571,7 @@ We may update this privacy policy from time to time.`
   return (
     <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-gray-200 py-12 px-4 font-sans relative overflow-hidden">
       <div className="fixed inset-0 pointer-events-none opacity-10 background-grid"></div>
-      
+
       {paymentVerificationStatus === 'verifying' && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-yellow-500 mb-6"></div>
@@ -482,7 +621,7 @@ We may update this privacy policy from time to time.`
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
-                <span className="text-gray-300">The Golden Leaderboard</span>
+                <span className="text-gray-300">The <span className="summary-count-shine">24k</span> Leaderboard</span>
               </div>
               <div className="relative">
                 <button
@@ -542,6 +681,7 @@ We may update this privacy policy from time to time.`
               leaderboard.map((user, index) => (
                 <div
                   key={user.paypal_transaction_id || index}
+                  style={isRecent(user.created_at) ? { animationDelay: `-${(Math.random() * 3).toFixed(2)}s` } : {}}
                   className={`px-6 py-4 group relative ${
                     index < 10 ? (
                       index === 0 ? 'sparkle-gold' :
@@ -686,7 +826,7 @@ We may update this privacy policy from time to time.`
                           index < 3 ? 'text-yellow-400' : 'text-gray-300'
                       }`}>
                           { (isMobile && hoveredIndex === index) || (!isMobile && hoveredAmountIndex === index)
-                              ? 'Pump it up?' 
+                              ? 'Pump it up?'
                               : `$${Math.floor(user.amount).toLocaleString('en-US')}`
                           }
                       </div>
@@ -696,6 +836,11 @@ We may update this privacy policy from time to time.`
               ))
             )}
           </div>
+          {summary && summary.userCount > 0 && leaderboard.length > 0 && (
+            <div className="leaderboard-summary">
+              ...and <strong className="summary-count-shine">{summary.userCount.toLocaleString()}</strong> other golden contributor{summary.userCount > 1 ? 's are' : ' is'} waiting below.
+            </div>
+          )}
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-500 via-yellow-600 to-yellow-500"></div>
         </div>
         {serverStatus === 'ready' && (
@@ -853,49 +998,53 @@ We may update this privacy policy from time to time.`
           </div>
         )}
         <div className="mt-10 border-t border-gray-700 pt-5 text-sm">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            {/* PayPal (Desktop) */}
+            <div className="hidden md:block flex-shrink-0">
+              <div className="paypal-logo-container">
+                <a href="https://www.paypal.com" target="_blank" rel="noopener noreferrer">
+                  <img src="/PP.png" alt="PayPal Logo" />
+                </a>
+              </div>
+            </div>
+            
+            {/* Text Content (All Screens) */}
+            <div className="w-full md:w-auto text-center">
+              <div className="flex justify-center space-x-4 md:space-x-6 flex-wrap">
+                <a href="#" onClick={(e) => { e.preventDefault(); setShowTerms(true); }} className="text-gray-400 hover:text-yellow-400 transition-colors duration-200 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                  Terms of Service
+                </a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setShowPrivacy(true); }} className="text-gray-400 hover:text-yellow-400 transition-colors duration-200 flex items-center">
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  Privacy
+                </a>
+                <a href="/db" className="text-gray-400 hover:text-yellow-400 transition-colors duration-200 flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7l8-4 8 4m-8 12v4m-4-8v4m8-4v4" /></svg>
+                  Database
+                </a>
+              </div>
+              <div className="mt-2 text-center text-xs text-gray-400">Leaderboard is secured and verified by GoldenRanks.com</div>
+              <div className="mt-2 text-center text-xs text-gray-500">© 2025 GoldenRanks.com. All Rights Reserved.</div>
+            </div>
+            
+            {/* Cloudflare (Desktop) */}
+            <div className="hidden md:block flex-shrink-0">
+              <div className="cloudflare-logo-container">
+                <a href="https://www.cloudflare.com" target="_blank" rel="noopener noreferrer">
+                  <img src="/CF.png" alt="Protected by Cloudflare" />
+                </a>
+              </div>
+            </div>
+          </div>
+          
+          {/* Logos (Mobile Only) */}
+          <div className="flex w-full justify-between items-center mt-4 md:hidden">
             <div className="paypal-logo-container">
               <a href="https://www.paypal.com" target="_blank" rel="noopener noreferrer">
                 <img src="/PP.png" alt="PayPal Logo" />
               </a>
             </div>
-            <div className="flex-grow text-center">
-              <div className="flex justify-center space-x-6">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setShowTerms(true)
-                  }}
-                  className="text-gray-400 hover:text-yellow-400 transition-colors duration-200 flex items-center"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                  Terms of Service
-                </a>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    setShowPrivacy(true)
-                  }}
-                  className="text-gray-400 hover:text-yellow-400 transition-colors duration-200 flex items-center"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  Privacy
-                </a>
-              </div>
-              <div className="mt-2 text-center text-xs text-gray-400">
-                Leaderboard is secured and verified by GoldenRanks.com
-              </div>
-              <div className="mt-2 text-center text-xs text-gray-500">
-                © 2025 GoldenRanks.com. All Rights Reserved.
-              </div>
-            </div>
-
             <div className="cloudflare-logo-container">
               <a href="https://www.cloudflare.com" target="_blank" rel="noopener noreferrer">
                 <img src="/CF.png" alt="Protected by Cloudflare" />
@@ -927,7 +1076,7 @@ We may update this privacy policy from time to time.`
               </div>
           </div>
         </div>
-        
+
         <div className={`modal-overlay ${showPrivacy ? 'visible' : ''}`}>
           <div className={`modal-container ${showPrivacy ? 'visible' : ''}`}>
               <div className="p-7">
@@ -953,4 +1102,15 @@ We may update this privacy policy from time to time.`
         </div>
     </main>
   );
+}
+
+
+export default function App() {
+  const path = window.location.pathname;
+
+  if (path === '/db') {
+    return <DatabaseView />;
+  }
+
+  return <MainLeaderboard />;
 }
