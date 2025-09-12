@@ -357,10 +357,12 @@
 }
 
 .db-view-container {
-  min-height: 100vh;
-  background-color: #111827; /* bg-gray-900 */
+  /*
+  The background properties are now handled by the main wrapper in App.jsx
+  to ensure consistency with the main page.
+  This wrapper is now mainly for content layout within the styled <main> tag.
+  */
   color: #d1d5db; /* text-gray-300 */
-  padding: 2rem 1rem;
   font-family: sans-serif;
 }
 

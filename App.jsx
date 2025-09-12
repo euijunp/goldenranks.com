@@ -24,6 +24,7 @@ function DatabaseView() {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
+  // Initial data load and load on search/page change
   useEffect(() => {
     setLoading(true);
     setError(null);
@@ -31,7 +32,12 @@ function DatabaseView() {
 
     fetch(url)
       .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch database content.');
+        if (!res.ok) {
+            if (res.status === 429) {
+                return res.text().then(text => { throw new Error(text) });
+            }
+            throw new Error('Failed to fetch database content.');
+        }
         return res.json();
       })
       .then(newData => {
@@ -44,6 +50,29 @@ function DatabaseView() {
         setLoading(false);
       });
   }, [page, debouncedSearchTerm]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const url = `/api/db?page=1&name=${encodeURIComponent(debouncedSearchTerm)}`;
+      fetch(url)
+        .then(res => {
+          if (!res.ok) return; // Fail silently on auto-refresh
+          return res.json();
+        })
+        .then(newData => {
+          if (newData) {
+            setPage(1);
+            setData(newData);
+          }
+        })
+        .catch(err => {
+          console.error("Auto-refresh failed:", err.message);
+        });
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [debouncedSearchTerm]);
+
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -67,70 +96,73 @@ function DatabaseView() {
   };
 
   return (
-    <div className="db-view-container">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-yellow-400 mb-2">Golden<span className="text-white">Ranks</span> Database</h1>
-          <p className="text-gray-400">Full transparency of all transactions (latest 100 per page).</p>
-          <a href="/" className="text-yellow-500 hover:underline mt-4 inline-block">&larr; Back to Leaderboard</a>
-        </div>
-
-        <div className="mb-6 max-w-lg mx-auto">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={handleSearchChange}
-            placeholder="Search by name..."
-            className="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white placeholder-gray-400"
-          />
-        </div>
-
-        <div className="db-table-wrapper">
-          <table className="db-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Amount</th>
-                <th>Timestamp</th>
-                <th>Verified</th>
-                <th>Transaction ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map(row => (
-                <tr key={row.id}>
-                  <td>{row.id}</td>
-                  <td className="font-mono break-all">{row.name}</td>
-                  <td>${row.amount.toLocaleString()}</td>
-                  <td>{formatDate(row.created_at)}</td>
-                  <td>
-                    <span className={row.verified ? 'verified-true' : 'verified-false'}>
-                      {row.verified ? 'Yes' : 'No'}
-                    </span>
-                  </td>
-                  <td className="font-mono">{maskTransactionId(row.paypal_transaction_id)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {loading && <div className="text-center py-4">Loading...</div>}
-        {error && <div className="text-center text-red-400 py-4">{error}</div>}
-
-        {!loading && hasMore && (
-          <div className="text-center mt-6">
-            <button
-              onClick={() => setPage(p => p + 1)}
-              className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-2 rounded-lg font-bold transition-colors"
-            >
-              Load More
-            </button>
+    <main className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-gray-200 py-12 px-4 font-sans relative overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none opacity-10 background-grid"></div>
+      <div className="db-view-container">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-extrabold text-yellow-400 mb-2">Golden<span className="text-white">Ranks</span> Open Database</h1>
+            <p className="text-gray-400">Full transparency on the latest 100 transactions.</p>
+            <a href="/" className="text-yellow-500 hover:underline mt-4 inline-block">&larr; Go Back</a>
           </div>
-        )}
+
+          <div className="db-table-wrapper">
+            <table className="db-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Amount</th>
+                  <th>Timestamp</th>
+                  <th>Verified</th>
+                  <th>PayPal Transaction ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map(row => (
+                  <tr key={row.id}>
+                    <td>{row.id}</td>
+                    <td className="font-mono break-all">{row.name}</td>
+                    <td>${row.amount.toLocaleString()}</td>
+                    <td>{formatDate(row.created_at)}</td>
+                    <td>
+                      <span className={row.verified ? 'verified-true' : 'verified-false'}>
+                        {row.verified ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="font-mono">{maskTransactionId(row.paypal_transaction_id)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {loading && <div className="text-center py-4">Loading...</div>}
+          {error && <div className="text-center text-red-400 py-4">{error}</div>}
+
+          {!loading && hasMore && (
+            <div className="text-center mt-6">
+              <button
+                onClick={() => setPage(p => p + 1)}
+                className="bg-yellow-500 hover:bg-yellow-600 text-gray-900 px-6 py-2 rounded-lg font-bold transition-colors"
+              >
+                Load More
+              </button>
+            </div>
+          )}
+
+          <div className="mt-8 max-w-lg mx-auto">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder="Search by name..."
+              className="w-full px-4 py-2.5 bg-gray-800 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white placeholder-gray-400"
+            />
+          </div>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -630,7 +662,8 @@ We may update this privacy policy from time to time.`
                     aria-label="Copy link"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                        {/* THIS IS THE CORRECTED PATH FOR THE SHARE ICON */}
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.59 13.51l6.83 3.98M15.41 16.49l-6.82-3.98" />
                     </svg>
                 </button>
               </div>
@@ -895,7 +928,7 @@ We may update this privacy policy from time to time.`
                   Enter your amount:
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <span className="text-yellow-400 font-bold text-lg">$</span>
                   </div>
                   <input
@@ -909,7 +942,7 @@ We may update this privacy policy from time to time.`
                         setEstimatedRank(estimateRank(userName, userAmount));
                       }
                     }}
-                    className="pl-10 w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white placeholder-gray-400 transition-all duration-200"
+                    className="pl-12 w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white placeholder-gray-400 transition-all duration-200"
                     placeholder="How much gold will you contribute?"
                     min="1"
                     step="1"
@@ -1038,8 +1071,8 @@ We may update this privacy policy from time to time.`
             </div>
           </div>
           
-          {/* Logos (Mobile Only) */}
-          <div className="flex w-full justify-between items-center mt-4 md:hidden">
+          {/* Logos (Mobile Only) - UPDATED */}
+          <div className="flex w-full justify-center items-center space-x-12 mt-4 md:hidden">
             <div className="paypal-logo-container">
               <a href="https://www.paypal.com" target="_blank" rel="noopener noreferrer">
                 <img src="/PP.png" alt="PayPal Logo" />
@@ -1103,7 +1136,6 @@ We may update this privacy policy from time to time.`
     </main>
   );
 }
-
 
 export default function App() {
   const path = window.location.pathname;

@@ -3,12 +3,22 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const paypal = require('paypal-rest-sdk');
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const path =require('path');
 const fs = require('fs');
+const session = require('express-session');
+const helmet = require('helmet');
+require('dotenv').config();
+
 const app = express();
 const PORT = 3001;
 
-const PAYPAL_WEBHOOK_ID = '0W109354GY895094X';
+// --- SECURITY-ENHANCEMENT: Environment variable checks ---
+if (!process.env.SESSION_SECRET || !process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+  console.error('FATAL ERROR: Required environment variables (SESSION_SECRET, PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET) are not defined in the .env file.');
+  process.exit(1);
+}
+
+const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID || '0W109354GY895094X';
 
 const DB_DIR = '/var/lib/goldenranks';
 const dbPath = '/var/lib/goldenranks/goldenranks.db';
@@ -17,22 +27,6 @@ console.log('Using database at:', dbPath);
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
   console.log('Created database directory:', DB_DIR);
-}
-
-function fixDatabasePermissions() {
-  try {
-    fs.accessSync(dbPath, fs.constants.R_OK | fs.constants.W_OK);
-    console.log('Database file permissions OK');
-  } catch (err) {
-    console.error('Database file permission error:', err);
-    try {
-      fs.chownSync(dbPath, 0, 0);
-      fs.chmodSync(dbPath, 0o644);
-      console.log('Database file permissions restored');
-    } catch (fixErr) {
-      console.error('Failed to fix database permissions:', fixErr);
-    }
-  }
 }
 
 let isDatabaseReady = false;
@@ -66,7 +60,6 @@ function checkDataConsistency(callback) {
     }
   });
 }
-
 
 const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
   if (err) {
@@ -111,12 +104,10 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
                     isDatabaseReady = false;
                     return;
                 }
-
                 const afterMigration = () => {
                     const tasks = [];
                     const hasVerified = columns.some(col => col.name === 'verified');
                     const hasPaypalId = columns.some(col => col.name === 'paypal_transaction_id');
-
                     if (!hasVerified) {
                         tasks.push(new Promise((resolve, reject) => {
                             db.run('ALTER TABLE leaderboard ADD COLUMN verified BOOLEAN DEFAULT FALSE', (alterErr) => {
@@ -135,7 +126,6 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
                             });
                         }));
                     }
-
                     Promise.all(tasks).then(() => {
                         console.log('Schema verification complete. Checking data consistency...');
                         checkDataConsistency((consistencyErr) => {
@@ -148,7 +138,6 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
                         databaseError = migrationErr;
                     });
                 };
-
                 const amountColumn = columns.find(col => col.name === 'amount');
                 if (amountColumn && amountColumn.type !== 'INTEGER') {
                     console.log('Amount column type is not INTEGER. Migrating...');
@@ -185,27 +174,13 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
   }
 });
 
+app.use(helmet());
 app.use(cors({ origin: 'https://goldenranks.com', credentials: true }));
-app.use(bodyParser.json());
 
-app.get('/api/status', (req, res) => {
-  if (databaseError) {
-    console.error('Database error:', databaseError);
-    return res.status(500).json({ status: 'error', message: 'Database connection failed', error: databaseError.message });
-  }
-  if (!isDatabaseReady) {
-    return res.status(503).json({ status: 'maintenance', message: 'Database is initializing' });
-  }
-  res.json({ status: 'ok', message: 'Server is ready' });
-});
-
-paypal.configure({
-  'mode': 'sandbox',
-  'client_id': 'AZ4L109sFRic_gBGPoiTkEHNCOSC8Jx3t1w-hVjKUdX8-vdmATo5YfPKUMLXQ0YZuo39aTQJM4KZIjeL',
-  'client_secret': 'EJ5aAASM0zji23dCWV8T9z-sSSK6tDV7tOQrwrIfApVQEZDBg9eyn2gqBHXleUyRYhVzT8OamRgOdfjh'
-});
-
-
+// --- [BUG FIX] ---
+// The PayPal webhook route is placed BEFORE the global bodyParser.json().
+// This ensures that the webhook gets the raw request body it needs for verification,
+// before any other middleware parses it as JSON.
 app.post('/api/webhook/paypal', bodyParser.raw({ type: 'application/json' }), (req, res) => {
     const webhookEvent = JSON.parse(req.body.toString());
     const headers = req.headers;
@@ -221,7 +196,6 @@ app.post('/api/webhook/paypal', bodyParser.raw({ type: 'application/json' }), (r
             const event = webhookEvent.resource;
             if (webhookEvent.event_type === 'PAYMENT.SALE.COMPLETED') {
                 const transactionId = event.id;
-
                 const fullInvoiceNumber = event.invoice_number;
                 if (!fullInvoiceNumber || !fullInvoiceNumber.includes('__')) {
                     console.error('Webhook Error: Invalid invoice_number format.');
@@ -248,6 +222,64 @@ app.post('/api/webhook/paypal', bodyParser.raw({ type: 'application/json' }), (r
             res.status(400).send('Webhook verification status not SUCCESS.');
         }
     });
+});
+// --- [END OF BUG FIX] ---
+
+// This will now parse JSON for all other routes that come after it.
+app.use(bodyParser.json());
+
+app.set('trust proxy', 1);
+
+const isProduction = process.env.NODE_ENV === 'production';
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: true,
+  cookie: { 
+    httpOnly: true,
+    secure: isProduction,
+    maxAge: 60 * 60 * 1000
+  }
+}));
+
+const rateLimitStore = {};
+const apiRateLimiter = (req, res, next) => {
+  const key = req.sessionID || req.ip;
+  const now = Date.now();
+  const limit = 60;
+  const windowMs = 60 * 60 * 1000;
+
+  if (!rateLimitStore[key] || now > rateLimitStore[key].resetTime) {
+    rateLimitStore[key] = {
+      count: 1,
+      resetTime: now + windowMs,
+    };
+  } else {
+    rateLimitStore[key].count++;
+  }
+
+  if (rateLimitStore[key].count > limit) {
+    return res.status(429).send('You have exceeded the request limit. Please wait for an hour before trying again.');
+  }
+
+  next();
+};
+
+app.get('/api/status', (req, res) => {
+  if (databaseError) {
+    console.error('Database error on status check:', databaseError);
+    return res.status(500).json({ status: 'error', message: 'Database connection failed' });
+  }
+  if (!isDatabaseReady) {
+    return res.status(503).json({ status: 'maintenance', message: 'Database is initializing' });
+  }
+  res.json({ status: 'ok', message: 'Server is ready' });
+});
+
+paypal.configure({
+  'mode': isProduction ? 'live' : 'sandbox',
+  'client_id': process.env.PAYPAL_CLIENT_ID,
+  'client_secret': process.env.PAYPAL_CLIENT_SECRET
 });
 
 app.get('/api/leaderboard', (req, res) => {
@@ -288,7 +320,7 @@ app.get('/api/leaderboard', (req, res) => {
   db.all(sql, [], (err, rows) => {
     if (err) {
       console.error('Database query error:', err);
-      return res.status(500).json({ error: 'Database query failed', details: err.message });
+      return res.status(500).json({ error: 'An error occurred while fetching the leaderboard.' });
     }
     console.log(`Fetched and aggregated ${rows.length} leaderboard entries`);
     res.json(rows);
@@ -318,18 +350,23 @@ app.get('/api/leaderboard/summary', (req, res) => {
   db.get(sql, [], (err, row) => {
     if (err) {
       console.error('Database summary query error:', err);
-      return res.status(500).json({ error: 'Database query failed', details: err.message });
+      return res.status(500).json({ error: 'An error occurred while fetching the summary.' });
     }
     res.json(row || { userCount: 0, totalAmount: 0 });
   });
 });
 
-app.get('/api/db', (req, res) => {
+app.get('/api/db', apiRateLimiter, (req, res) => {
   if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
 
-  const { page = 1, name = '' } = req.query;
+  const page = parseInt(req.query.page, 10) || 1;
+  const name = req.query.name || '';
+  if (page < 1) {
+    return res.status(400).json({ error: 'Invalid page number.' });
+  }
+
   const limit = 100;
-  const offset = (parseInt(page, 10) - 1) * limit;
+  const offset = (page - 1) * limit;
 
   let sql = `SELECT id, name, amount, created_at, verified, paypal_transaction_id FROM leaderboard`;
   const params = [];
@@ -345,21 +382,26 @@ app.get('/api/db', (req, res) => {
   db.all(sql, params, (err, rows) => {
     if (err) {
       console.error('Database full view query error:', err);
-      return res.status(500).json({ error: 'Database query failed', details: err.message });
+      return res.status(500).json({ error: 'An error occurred while fetching database content.' });
     }
     res.json(rows);
   });
 });
 
-
-app.post('/api/create-payment', (req, res) => {
+app.post('/api/create-payment', apiRateLimiter, (req, res) => {
   if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
-  const { name, amount } = req.body;
-  if (!name || name.length > 64) return res.status(400).json({ error: 'Invalid name' });
-  const amountInt = parseInt(amount);
-  if (isNaN(amountInt) || amountInt < 1 || amountInt > 1000000) return res.status(400).json({ error: 'Invalid amount' });
 
-  const uniqueInvoiceNumber = `${name}__${Date.now()}`;
+  const { name, amount } = req.body;
+  if (typeof name !== 'string' || !name.trim() || name.length > 64) {
+    return res.status(400).json({ error: 'Invalid name provided.' });
+  }
+  const amountInt = parseInt(amount, 10);
+  if (isNaN(amountInt) || amountInt < 1 || amountInt > 1000000) {
+    return res.status(400).json({ error: 'Invalid amount provided.' });
+  }
+
+  const sanitizedName = name.trim().replace(/[^a-zA-Z0-9 _-]/g, "");
+  const uniqueInvoiceNumber = `${sanitizedName}__${Date.now()}`;
 
   const create_payment_json = {
     "intent": "sale",
@@ -370,7 +412,7 @@ app.post('/api/create-payment', (req, res) => {
     },
     "transactions": [{
       "amount": { "currency": "USD", "total": amountInt.toString() },
-      "description": `Leaderboard entry for ${name}`,
+      "description": `Leaderboard entry for ${sanitizedName}`,
       "invoice_number": uniqueInvoiceNumber
     }]
   };
@@ -378,16 +420,26 @@ app.post('/api/create-payment', (req, res) => {
   paypal.payment.create(create_payment_json, function (error, payment) {
     if (error) {
       console.error('PayPal API Error:', error);
-      return res.status(500).json({ error: 'Payment creation failed' });
+      return res.status(500).json({ error: 'Payment creation failed.' });
     } else {
-      res.json({ approvalUrl: payment.links.find(link => link.rel === 'approval_url').href });
+      const approvalUrl = payment.links.find(link => link.rel === 'approval_url');
+      if (approvalUrl) {
+        res.json({ approvalUrl: approvalUrl.href });
+      } else {
+        console.error('PayPal Error: No approval URL found.');
+        return res.status(500).json({ error: 'Could not retrieve payment URL.' });
+      }
     }
   });
 });
 
-app.get('/api/execute-payment', (req, res) => {
+app.get('/api/execute-payment', apiRateLimiter, (req, res) => {
     if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
     const { paymentId, PayerID, amount } = req.query;
+
+    if (!paymentId || !PayerID || !amount) {
+        return res.status(400).json({ error: 'Missing required payment parameters.' });
+    }
 
     const execute_payment_json = {
         "payer_id": PayerID,
@@ -397,7 +449,7 @@ app.get('/api/execute-payment', (req, res) => {
     paypal.payment.execute(paymentId, execute_payment_json, function (error, payment) {
         if (error) {
             console.error('PayPal Execute Error:', error.response || error);
-            return res.status(500).json({ error: 'Payment execution failed' });
+            return res.status(500).json({ error: 'Payment execution failed.' });
         } else {
             try {
                 const fullInvoiceNumber = payment.transactions[0].invoice_number;
@@ -445,5 +497,4 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Database path: ${dbPath}`);
   console.log(`[DEBUG] Serving static files from absolute path: ${path.resolve(distPath)}`);
-  fixDatabasePermissions();
 });
