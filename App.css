@@ -231,15 +231,16 @@
   padding: 4px;
   border-radius: 50%;
   background-color: transparent;
-  transition: background-color 0.2s, transform 0.2s;
+  transition: transform 0.2s;
+  transform: translate(3px, 3px);
 }
 .share-button:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  transform: scale(1.1);
+  transform: translate(3px, 3px) scale(1.1);
 }
 .share-button:active {
-  transform: scale(0.95);
+  transform: translate(3px, 3px) scale(0.95);
 }
+
 .copy-message {
   background-color: #2d3748;
   color: #e2e8f0;
