@@ -197,30 +197,140 @@ function MainLeaderboard() {
   const formRef = useRef(null);
   const amountInputRef = useRef(null);
 
-  const termsContent = `GoldenRanks Terms of Service
-Last updated: September 6, 2030
-1. Introduction
-These Terms of Service govern your use of the GoldenRanks website.
-2. Rankings
-The rankings displayed on this website are for entertainment purposes only.
-3. User Submissions
-By submitting your name to the leaderboard, you agree to these terms.
-4. No Warranty
-This service is provided "as is" without any warranties of any kind.
-5. Limitation of Liability
-In no event shall GoldenRanks be liable for any indirect damages.`
-  const privacyContent = `GoldenRanks Privacy Policy
-Last updated: September 4, 2024
-1. Information Collection
-We only collect your username when you submit it to the leaderboard.
-2. Use of Information
-Your username is used solely for display on the leaderboard.
-3. Data Retention
-User data is stored only in your browser's memory and is not persisted.
-4. Third-Party Disclosure
-We do not share your information with any third parties.
-5. Changes to This Policy
-We may update this privacy policy from time to time.`
+  const termsContent = `Terms of Service
+
+Effective Date: 2025-09-13
+Last Updated: 2025-09-13
+
+Welcome to GoldenRanks ("the Site"). By accessing or using this Site, you agree to be bound by these Terms of Service ("Terms"). If you do not agree, please do not use the Site.
+
+1. General Overview
+The Site provides an online platform where users may make voluntary payments via PayPal. Users are displayed on a public Leaderboard, ranked according to the total amount they have contributed. In addition to the Leaderboard, individual contribution records are made public on a separate Database page for transparency. Payments are considered voluntary contributions and do not entitle the contributor to ownership rights, services, or goods, unless explicitly stated.
+
+2. Eligibility
+You must be at least 18 years of age (or the age of majority in your jurisdiction) to use the Site. By using the Site, you confirm that you are legally able to enter into this agreement.
+
+3. Payments
+All payments are processed securely through PayPal. Payments are final and non-refundable. By submitting a payment, you acknowledge that the service has been fully delivered by your placement on the Leaderboard. Refunds will not be issued under any circumstances, except where required by applicable law. You are responsible for any fees, charges, or taxes related to your transactions.
+
+4. Leaderboard
+Leaderboard rankings are based solely on the aggregated total amount of payments made through the Site. If two or more contributors have the same total amount, the contributor with the most recent contribution time will be ranked higher. Placement is updated automatically once a payment is confirmed. The update may take a few minutes at most due to connection issues. Leaderboard display is for informational and entertainment purposes only and does not represent ownership, status, or rewards. GoldenRanks is not responsible for errors, delays, or interruptions in payment processing that may affect leaderboard placement. For transparency, all individual contributions are also displayed on a public Database page. This page shows the contributor's name, amount, timestamp, and a masked version of the transaction ID. Usernames or IDs are submitted by contributors during the payment process. We do not verify the accuracy of these names. The appearance of a name does not imply that the person or entity is affiliated with or endorses the Site. The leaderboard data is regularly backed up. Backups are retained for a limited time and then permanently deleted. The leaderboard will not be manually changed or altered by administrators under any circumstances, except to remove entries that contain obscene, pornographic, vulgar, defamatory, discriminatory, or otherwise offensive content. The only way to change placement on the leaderboard is through additional payments. We reserve the right to adjust, remove, or reset leaderboard entries only in cases of fraud, abuse, illegal content, or technical malfunction.
+
+5. User Conduct
+You agree not to:
+
+Use the Site for unlawful purposes (including money laundering, fraud, or prohibited transactions).
+
+Interfere with or disrupt the Site’s security or functionality.
+
+Submit content, usernames, or IDs that are obscene, pornographic, vulgar, hateful, defamatory, discriminatory, or otherwise offensive. (Note: Using celebrity names or public figures is permitted under Section 4 as long as it does not cross into illegal or harmful use.)
+
+6. Intellectual Property
+All content, design, and branding on the Site are the property of GoldenRanks and protected by copyright and trademark laws. You may not copy, reproduce, or redistribute any part of the Site without prior written consent.
+
+7. Disclaimer of Warranties
+The Site is provided “as is” and “as available.” We make no guarantees that the Site will be uninterrupted, secure, or error-free.
+
+8. Limitation of Liability
+To the fullest extent permitted by law, GoldenRanks is not liable for any direct, indirect, incidental, or consequential damages arising from your use of the Site.
+
+9. Termination
+We may suspend or terminate your access to the Site at any time if you violate these Terms or engage in prohibited conduct.
+
+10. Governing Law
+These Terms are governed by and construed in accordance with the laws of the country in which the Site’s administrator resides, without regard to conflict of law principles. By using the Site, you agree that any disputes, claims, or proceedings arising out of or relating to these Terms shall be subject to the exclusive jurisdiction of the competent courts in that country. This applies to all users worldwide, regardless of their place of residence or nationality.
+
+11. Changes to Terms
+We may update these Terms from time to time. Continued use of the Site after changes are posted constitutes acceptance of the revised Terms.
+
+12. Contact
+If you have questions about these Terms, contact us at: Email: contact@goldenranks.com`
+
+  const privacyContent = `Privacy Policy
+
+Effective Date: 2025-09-13
+Last Updated: 2025-09-13
+
+This Privacy Policy explains how GoldenRanks ("the Site," "we," "us") collects, uses, and protects your personal information. By using the Site, you consent to the practices described below.
+
+1. Information We Collect
+When you interact with the Site, we collect information to operate the service and ensure its security.
+
+A. Information You Provide
+
+Username/ID: The name or identifier you submit to be displayed on the Leaderboard.
+
+Contribution Amount: The monetary value you choose to contribute.
+
+B. Information We Collect Automatically
+
+Server Logs and IP Addresses: When you visit the Site, our servers automatically log standard data, including your IP address. This information is used for security purposes, such as fraud prevention, abuse monitoring, and rate limiting.
+
+Cookies: We use session cookies to maintain the basic functionality of the Site. A cookie is a small text file stored on your device that helps us manage your session.
+
+C. Information from Third Parties
+
+Payment Verification Data: Payments are processed exclusively by PayPal. We do not collect or store your credit card number, bank account details, or PayPal password. After a successful transaction, PayPal provides us with a Transaction ID and confirmation of payment, which we store to verify your contribution.
+
+D. Browser Storage (Local Storage)
+
+During the payment process, we temporarily store the Username and Amount you entered in your browser’s local storage. This is to ensure your data is not lost when you are redirected to PayPal and back. This temporary data is cleared once the payment process is completed or fails.
+
+2. How We Use Your Information
+We use the information we collect to:
+
+Display your contributions on the public Leaderboard and Database page.
+
+Process and verify payments in conjunction with PayPal.
+
+Operate, maintain, and secure the Site, including preventing fraud and abuse.
+
+Comply with legal and regulatory obligations.
+
+3. Sharing of Information
+A core feature of the Site is the public display of contribution data. By making a payment, you consent to have your submitted Username/ID and contribution amount(s) displayed publicly on our Leaderboard and Database page.
+
+We do not sell or rent your personal information to third parties for marketing purposes. We only share information as follows:
+
+With Payment Processors: We share necessary information (such as the contribution amount) with PayPal to initiate and process your payment.
+
+As Required by Law: We may disclose your information if required to do so by law or in response to a valid legal request.
+
+4. Data Retention
+Information submitted for the Leaderboard and Database page (including Username/ID, amount, and transaction data) is retained indefinitely for the lifetime of the service to maintain the integrity of the public historical record.
+
+Server logs containing IP addresses are retained for a limited period necessary for security and operational analysis, after which they are deleted. Temporary data stored in your browser's local storage is cleared immediately upon completion of the payment process.
+
+5. User Rights
+Depending on your location, you may have the following rights:
+
+GDPR (EU/UK users): Right to access, correct, delete, or restrict processing of your personal data. You also have the right to object to processing and to request data portability.
+
+CCPA/CPRA (California users): Right to know what data we collect, to request deletion of personal data, and to opt out of data sharing.
+
+To exercise these rights, please contact us (see Section 8).
+
+6. Age Restrictions
+The Site is intended for users 18 years or older. We do not knowingly collect personal information from children. If we learn that we have collected information from a minor, we will promptly delete it.
+
+7. Security and Data Backups
+We take reasonable technical and organizational measures to protect your data. However, no system is 100% secure, and we cannot guarantee absolute security of information transmitted over the internet.
+
+For the purpose of disaster recovery, we maintain a robust backup policy for our database.
+
+Backup Schedule: The database is backed up automatically on a daily schedule. Additionally, a backup is performed every time the server reboots to protect against data loss from unexpected outages.
+
+Retention Policy: Backup files are securely stored for a maximum of 30 days. Any backup file older than 30 days is automatically and permanently deleted.
+
+Security: All backup files are stored with restricted permissions, accessible only to authorized system administrators, to prevent unauthorized access.
+
+If you request the deletion of your data from our live database, it may remain in our encrypted backup archives for up to 30 days until the next deletion cycle. This archived data will not be used for any purpose other than system restoration.
+
+8. Contact Us
+If you have questions about this Privacy Policy or your personal data, please contact us at: Email: contact@goldenranks.com
+
+9. Changes to This Policy
+We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated effective date. Continued use of the Site after changes are posted constitutes acceptance of the revised Privacy Policy.`
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
