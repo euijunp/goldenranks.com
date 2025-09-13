@@ -197,9 +197,7 @@ function MainLeaderboard() {
   const formRef = useRef(null);
   const amountInputRef = useRef(null);
 
-  const termsContent = `Terms of Service
-
-Effective Date: 2025-09-13
+  const termsContent = `Effective Date: 2025-09-13
 Last Updated: 2025-09-13
 
 Welcome to GoldenRanks ("the Site"). By accessing or using this Site, you agree to be bound by these Terms of Service ("Terms"). If you do not agree, please do not use the Site.
@@ -246,9 +244,7 @@ We may update these Terms from time to time. Continued use of the Site after cha
 12. Contact
 If you have questions about these Terms, contact us at: Email: contact@goldenranks.com`
 
-  const privacyContent = `Privacy Policy
-
-Effective Date: 2025-09-13
+  const privacyContent = `Effective Date: 2025-09-13
 Last Updated: 2025-09-13
 
 This Privacy Policy explains how GoldenRanks ("the Site," "we," "us") collects, uses, and protects your personal information. By using the Site, you consent to the practices described below.
@@ -717,7 +713,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
       {paymentVerificationStatus === 'verifying' && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-80 flex flex-col items-center justify-center z-50 backdrop-blur-sm">
             <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-yellow-500 mb-6"></div>
-            <h2 className="text-3xl font-bold text-yellow-400 mb-2">Verifying Your Payment...</h2>
+            <h2 className="text-3xl font-bold text-yellow-400 mb-2 text-center">Verifying Your Payment...</h2>
             <p className="text-gray-300">Please wait, this may take a few seconds.</p>
         </div>
       )}
@@ -754,7 +750,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
           Golden<span className="text-white">Ranks</span>
         </h1>
         {}
-        <p className="text-center text-gray-300 text-base mb-8 px-4 font-semibold">Rich? All talk. Go ahead and flex.</p>
+        <p className="text-center text-gray-300 text-base mb-8 px-4 font-semibold">Just prove it.</p>
         <div className="bg-gray-800 rounded-xl shadow-2xl overflow-hidden border border-gray-700 relative">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-500 via-yellow-600 to-yellow-500"></div>
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-4 font-bold border-b border-gray-700">
