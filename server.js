@@ -82,7 +82,6 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               name TEXT NOT NULL,
               amount INTEGER NOT NULL,
-              transaction_id TEXT,
               created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
               verified BOOLEAN DEFAULT FALSE,
               paypal_transaction_id TEXT
@@ -392,7 +391,7 @@ app.post('/api/create-payment', apiRateLimiter, (req, res) => {
   if (!isDatabaseReady) return res.status(503).json({ error: 'Database is initializing' });
 
   const { name, amount } = req.body;
-  if (typeof name !== 'string' || !name.trim() || name.length > 64) {
+  if (typeof name !== 'stri ng' || !name.trim() || name.length > 64) {
     return res.status(400).json({ error: 'Invalid name provided.' });
   }
   const amountInt = parseInt(amount, 10);
