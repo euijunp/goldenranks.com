@@ -84,7 +84,15 @@ function DatabaseView() {
     try {
       const date = new Date(dateString.replace(' ', 'T') + 'Z');
       if (isNaN(date.getTime())) return 'N/A';
-      return date.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     } catch {
       return 'N/A';
     }
@@ -110,7 +118,6 @@ function DatabaseView() {
             <table className="db-table">
               <thead>
                 <tr>
-                  <th>ID</th>
                   <th>Name</th>
                   <th>Amount</th>
                   <th>Timestamp</th>
@@ -121,7 +128,6 @@ function DatabaseView() {
               <tbody>
                 {data.map(row => (
                   <tr key={row.id}>
-                    <td>{row.id}</td>
                     <td className="font-mono break-all">{row.name}</td>
                     <td>${row.amount.toLocaleString()}</td>
                     <td>{formatDate(row.created_at)}</td>
