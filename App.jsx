@@ -182,6 +182,7 @@ function MainLeaderboard() {
   const [hoveredAmountIndex, setHoveredAmountIndex] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
   const [summary, setSummary] = useState(null);
+  const [checkboxError, setCheckboxError] = useState(false);
 
   const [paymentStatus, setPaymentStatus] = useState('idle');
   const [showPayPal, setShowPayPal] = useState(false); 
@@ -565,7 +566,11 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               <h2 className="text-3xl font-bold text-green-400 mb-2">Payment Verified!</h2>
-              <p className="text-gray-300">Your contribution is worth its weight in gold! Your spot in the GoldenRanks is secure.</p>
+              <p className="text-gray-300 text-center">
+                Your contribution is worth its weight in gold!
+                <br />
+                Your spot in the GoldenRanks is secure.
+              </p>
               <p className="mt-4 text-xs text-gray-500">(Click anywhere to close)</p>
           </div>
         )}
@@ -575,7 +580,11 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <h2 className="text-3xl font-bold text-red-400 mb-2">Verification Failed</h2>
-              <p className="text-gray-300 text-center">We couldn't verify your payment automatically.<br/>Please check the leaderboard in a minute or contact support.</p>
+              <p className="text-gray-300 text-center">
+                We couldn't verify your payment automatically.
+                <br />
+                Please check the leaderboard in a minute or contact support.
+              </p>
               <p className="mt-4 text-xs text-gray-500">(Click anywhere to close)</p>
           </div>
         )}
@@ -768,7 +777,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                                     <span className="ml-1">{formatDate(user.created_at)}</span>
                                   </div>
                                   {user.verified && user.paypal_transaction_id ? (
-                                    <div className="flex items-center text-green-400">
+                                    <div className="flex items-center text-green-400 -ml-0.5">
                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                       </svg>
@@ -875,7 +884,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                     Enter your amount:
                   </label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <span className="text-yellow-400 font-bold text-lg">$</span>
                     </div>
                     <input
@@ -907,17 +916,17 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                       </div>
                       <div>
                         {checkDuplicateName(userName) > 0 ? (
-                            <p className="text-sm text-gray-200">With this additional amount, you'll be ranked <span className="text-yellow-400 font-bold">#{estimatedRank}</span>!</p>
+                            <p className="text-sm text-gray-200 font-bold">With this additional amount, you'll be ranked <span className="summary-count-shine">#{estimatedRank}</span>!</p>
                         ) : (
-                            <p className="text-sm text-gray-200">With this amount, you'll be ranked <span className="text-yellow-400 font-bold">#{estimatedRank}</span>!</p>
+                            <p className="text-sm text-gray-200 font-bold">With this amount, you'll be ranked <span className="summary-count-shine">#{estimatedRank}</span>!</p>
                         )}
                         {estimatedRank <= 3 && (
-                          <p className="text-sm text-yellow-300 mt-1 flex items-center">
+                          <p className="text-sm mt-1 flex items-center gentle-sparkle">
                             <span className="mr-1">🌟</span> You'll be in the Golden Circle!
                           </p>
                         )}
                         {checkDuplicateName(userName) > 0 && (
-                          <p className="text-sm text-yellow-300 mt-1 flex items-center">
+                          <p className="text-sm mt-1 flex items-center gentle-sparkle">
                             <span className="mr-1">💰</span> This will add to your existing amount of ${Math.floor(checkDuplicateName(userName)).toLocaleString()}
                           </p>
                         )}
@@ -925,40 +934,51 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                     </div>
                   </div>
                 )}
-                <div className="pt-2 flex flex-col items-center text-xs text-gray-400">
-                  <div className="flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      id="agreeTerms"
-                      checked={agreeTerms}
-                      onChange={e => setAgreeTerms(e.target.checked)}
-                      className="mr-2 h-4 w-4 rounded bg-gray-700 border-gray-600 text-yellow-500 focus:ring-yellow-600"
-                      required
-                    />
-                    <label htmlFor="agreeTerms">
-                      I agree to the{' '}
-                      <a href="#" onClick={e => { e.preventDefault(); setShowTerms(true); }} className="underline hover:text-yellow-300 transition-colors">
-                        Terms of Service
-                      </a>
-                      {' and '}
-                      <a href="#" onClick={e => { e.preventDefault(); setShowPrivacy(true); }} className="underline hover:text-yellow-300 transition-colors">
-                        Privacy Policy
-                      </a>.
-                    </label>
-                  </div>
+                <div className={checkboxError ? 'checkbox-error-glow' : ''}>
+                    <div className="pt-2 flex flex-col items-center text-xs text-gray-400">
+                      <div className="flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          id="agreeTerms"
+                          checked={agreeTerms}
+                          onChange={e => {
+                            const isChecked = e.target.checked;
+                            setAgreeTerms(isChecked);
+                            if (!isChecked) {
+                              setShowPayPal(false);
+                            }
+                          }}
+                          className="mr-2 h-4 w-4 rounded bg-gray-700 border-gray-600 text-yellow-500 focus:ring-yellow-600"
+                          required
+                        />
+                        <label htmlFor="agreeTerms">
+                          I agree to the{' '}
+                          <a href="#" onClick={e => { e.preventDefault(); setShowTerms(true); }} className="underline hover:text-yellow-300 transition-colors">
+                            Terms of Service
+                          </a>
+                          {' and '}
+                          <a href="#" onClick={e => { e.preventDefault(); setShowPrivacy(true); }} className="underline hover:text-yellow-300 transition-colors">
+                            Privacy Policy
+                          </a>.
+                        </label>
+                      </div>
+                    </div>
                 </div>
                 
-                <div className="relative pt-2">
+                <div className={`relative transition-all duration-300 ease-in-out ${showPayPal ? 'min-h-[130px] md:min-h-[155px]' : 'min-h-[76px]'}`}>
                   <div className={`transition-opacity duration-300 ${showPayPal ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                     <button
                       type="button"
                       onClick={() => {
                           if (userName.trim() && userAmount && parseInt(userAmount) >= 1 && agreeTerms) {
                               setShowPayPal(true);
+                          } else if (!agreeTerms) {
+                              setCheckboxError(true);
+                              setTimeout(() => setCheckboxError(false), 900);
                           }
                       }}
                       className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-lg transition-all duration-300 shadow-md relative overflow-hidden group flex flex-col items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!userName.trim() || !userAmount || parseInt(userAmount) < 1 || !agreeTerms}
+                      disabled={!userName.trim() || !userAmount || parseInt(userAmount) < 1}
                     >
                       <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-800 to-yellow-900">Golden Entry</span>
                       <span className="text-xs text-gray-700 mt-1">Secure payment via PayPal • No hidden fees</span>
@@ -966,7 +986,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                     </button>
                   </div>
 
-                  <div className={`absolute inset-0 transition-opacity duration-300 ${showPayPal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                  <div className={`absolute inset-0 z-10 transition-opacity duration-300 ${showPayPal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                     <PayPalButtons
                       style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
                       createOrder={async (data, actions) => {

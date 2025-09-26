@@ -33,8 +33,8 @@
   50% { background-color: rgba(212, 175, 55, 0.05); }
 }
 @keyframes checkboxGlow {
-  0%, 100% { box-shadow: 0 0 0px rgba(255, 215, 0, 0); }
-  50% { box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.7); }
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(212, 175, 55, 0.1); }
 }
 @keyframes fadeInOut {
   0%, 100% { opacity: 0; transform: translate(-50%, -40%); }
@@ -58,11 +58,25 @@
     text-shadow: 0 0 8px rgba(253, 230, 138, 0.8);
   }
 }
+@keyframes gentleGoldSparkle {
+  0%, 100% {
+    color: #d4af37;
+    text-shadow: 0 0 4px rgba(212, 175, 55, 0.3);
+  }
+  50% {
+    color: #fde68a;
+    text-shadow: 0 0 8px rgba(253, 230, 138, 0.5);
+  }
+}
+
+.gentle-sparkle {
+  font-weight: 700;
+  animation: gentleGoldSparkle 4s infinite ease-in-out;
+}
 
 .summary-count-shine {
   animation: countShine 2s infinite ease-in-out;
   display: inline-block;
-  font-weight: 800;
 }
 
 .modal-overlay {
@@ -118,10 +132,11 @@
 }
 
 .checkbox-error-glow > div {
-  padding: 2px;
+  padding-top: 2px;
+  padding-bottom: 2px;
   border-radius: 6px;
   animation: checkboxGlow 0.9s ease-in-out;
-  transition: box-shadow 0.3s;
+  transition: background-color 0.3s;
 }
 
 .sparkle-gold > div {
