@@ -743,7 +743,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                             </span>
                             <div className="min-w-0 flex-1">
                               <span className={`font-bold text-gray-300 block ${
-                              hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis'
+                              hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis whitespace-nowrap'
                               }`}>
                               {user.name}
                               </span>
