@@ -196,8 +196,8 @@ function MainLeaderboard() {
   const touchTimer = useRef(null);
   const lastTouchTime = useRef(0);
 
-  const termsContent = `Effective Date: 2025-09-13
-Last Updated: 2025-09-13
+  const termsContent = `Effective Date: 2025-09-27
+Last Updated: 2025-09-27
 
 Welcome to GoldenRanks ("the Site"). By accessing or using this Site, you agree to be bound by these Terms of Service ("Terms"). If you do not agree, please do not use the Site.
 
@@ -243,8 +243,8 @@ We may update these Terms from time to time. Continued use of the Site after cha
 12. Contact
 If you have questions about these Terms, contact us at: Email: contact@goldenranks.com`
 
-  const privacyContent = `Effective Date: 2025-09-13
-Last Updated: 2025-09-13
+  const privacyContent = `Effective Date: 2025-09-27
+Last Updated: 2025-09-27
 
 This Privacy Policy explains how GoldenRanks ("the Site," "we," "us") collects, uses, and protects your personal information. By using the Site, you consent to the practices described below.
 
@@ -720,6 +720,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                                       strokeLinecap="round"
                                       strokeLinejoin="round"/>
                               </svg>
+                              <div className="absolute -inset-1.5 bg-gray-300/20 rounded-full blur-sm animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
                             </div>
                           )}
                           {index === 2 && (
@@ -731,6 +732,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                                       strokeLinecap="round"
                                       strokeLinejoin="round"/>
                               </svg>
+                              <div className="absolute -inset-1.5 bg-amber-600/20 rounded-full blur-sm animate-[ping_2s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
                             </div>
                           )}
                         </div>
@@ -741,7 +743,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                             </span>
                             <div className="min-w-0 flex-1">
                               <span className={`font-bold text-gray-300 block ${
-                              hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis whitespace-nowrap'
+                              hoveredIndex === index ? 'whitespace-pre-wrap break-all text-yellow-300 text-wave' : 'overflow-hidden text-ellipsis'
                               }`}>
                               {user.name}
                               </span>
@@ -767,7 +769,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                               </div>
                               <div className={`detail-container ${hoveredIndex === index ? 'open' : ''}`}>
                                 <div className="text-xs text-gray-300 mt-2">
-                                  <div className="flex items-center mb-1">
+                                  <div className="flex items-center mb-1 ml-0.5">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
@@ -777,7 +779,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                                     <span className="ml-1">{formatDate(user.created_at)}</span>
                                   </div>
                                   {user.verified && user.paypal_transaction_id ? (
-                                    <div className="flex items-center text-green-400 -ml-0.5">
+                                    <div className="flex items-center text-green-400">
                                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                       </svg>
@@ -810,13 +812,15 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                         onMouseEnter={() => !isMobile && setHoveredAmountIndex(index)}
                         onMouseLeave={() => !isMobile && setHoveredAmountIndex(null)}
                       >
-                        <div className={`font-extrabold text-lg transition-colors duration-200 ${
+                        <div className={`font-extrabold text-lg text-center transition-colors duration-200 ${
                             (isMobile && hoveredIndex === index) || (!isMobile && hoveredAmountIndex === index) ? 'text-yellow-400' :
                             index < 3 ? 'text-yellow-400' : 'text-gray-300'
                         }`}>
-                            { (isMobile && hoveredIndex === index) || (!isMobile && hoveredAmountIndex === index)
-                                ? 'Pump it up?'
-                                : `$${Math.floor(user.amount).toLocaleString('en-US')}`
+                            { (isMobile && hoveredIndex === index)
+                                ? <span className="leading-tight uppercase" dangerouslySetInnerHTML={{ __html: 'PUMP<br>IT UP?' }} />
+                                : (!isMobile && hoveredAmountIndex === index)
+                                    ? 'Pump it up?'
+                                    : `$${Math.floor(user.amount).toLocaleString('en-US')}`
                             }
                         </div>
                       </div>
@@ -965,31 +969,32 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                     </div>
                 </div>
                 
-                <div className={`relative transition-all duration-300 ease-in-out ${showPayPal ? 'min-h-[130px] md:min-h-[155px]' : 'min-h-[76px]'}`}>
-                  <div className={`transition-opacity duration-300 ${showPayPal ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-                    <button
-                      type="button"
-                      onClick={() => {
+                <div className="transition-all duration-300 ease-in-out">
+                  {!showPayPal ? (
+                    <div className="min-h-[76px] flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => {
                           if (userName.trim() && userAmount && parseInt(userAmount) >= 1 && agreeTerms) {
-                              setShowPayPal(true);
+                            setShowPayPal(true);
                           } else if (!agreeTerms) {
-                              setCheckboxError(true);
-                              setTimeout(() => setCheckboxError(false), 900);
+                            setCheckboxError(true);
+                            setTimeout(() => setCheckboxError(false), 900);
                           }
-                      }}
-                      className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-lg transition-all duration-300 shadow-md relative overflow-hidden group flex flex-col items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!userName.trim() || !userAmount || parseInt(userAmount) < 1}
-                    >
-                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-800 to-yellow-900">Golden Entry</span>
-                      <span className="text-xs text-gray-700 mt-1">Secure payment via PayPal • No hidden fees</span>
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-300/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:translate-x-full"></div>
-                    </button>
-                  </div>
-
-                  <div className={`absolute inset-0 z-10 transition-opacity duration-300 ${showPayPal ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                    <PayPalButtons
-                      style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
-                      createOrder={async (data, actions) => {
+                        }}
+                        className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-bold py-3 px-4 rounded-lg text-lg transition-all duration-300 shadow-md relative overflow-hidden group flex flex-col items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!userName.trim() || !userAmount || parseInt(userAmount) < 1}
+                      >
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-800 to-yellow-900">Golden Entry</span>
+                        <span className="text-xs text-gray-700 mt-1">Secure payment via PayPal • No hidden fees</span>
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-300/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:translate-x-full"></div>
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <PayPalButtons
+                        style={{ layout: "vertical", color: "gold", shape: "rect", label: "pay" }}
+                        createOrder={async (data, actions) => {
                           try {
                             const res = await fetch("/api/orders", {
                               method: "POST",
@@ -998,8 +1003,8 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                             });
                             const order = await res.json();
                             if (res.ok) {
-                                localStorage.setItem('pendingUserName', userName);
-                                return order.id;
+                              localStorage.setItem('pendingUserName', userName);
+                              return order.id;
                             }
                             throw new Error(order.error || "Order ID not received from server");
                           } catch (err) {
@@ -1008,22 +1013,19 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                             console.error('Create Order Error:', err);
                             throw err;
                           }
-                      }}
-                      onApprove={async (data, actions) => {
+                        }}
+                        onApprove={async (data, actions) => {
                           try {
                             const pendingUserName = localStorage.getItem('pendingUserName');
                             if (!pendingUserName) {
-                                throw new Error("Could not find user name for this order.");
+                              throw new Error("Could not find user name for this order.");
                             }
-                            
-                            const res = await fetch(`/api/orders/${data.orderID}/capture`, { 
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ name: pendingUserName })
+                            const res = await fetch(`/api/orders/${data.orderID}/capture`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ name: pendingUserName })
                             });
-
                             localStorage.removeItem('pendingUserName');
-
                             if (res.ok) {
                               setPaymentStatus('success');
                               loadLeaderboard();
@@ -1041,19 +1043,21 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
                             console.error('Capture Order Error:', err);
                             throw err;
                           }
-                      }}
-                      onError={(err) => {
-                        setPaymentStatus('error');
-                        setShowPayPal(false);
-                        console.error('PayPal Button Error:', err);
-                      }}
-                      onCancel={(data) => {
-                        setShowPayPal(false);
-                        console.log('Payment cancelled:', data);
-                      }}
-                    />
-                  </div>
+                        }}
+                        onError={(err) => {
+                          setPaymentStatus('error');
+                          setShowPayPal(false);
+                          console.error('PayPal Button Error:', err);
+                        }}
+                        onCancel={(data) => {
+                          setShowPayPal(false);
+                          console.log('Payment cancelled:', data);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
+
               </div>
             </div>
           )}
