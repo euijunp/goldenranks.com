@@ -541,7 +541,7 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
     if (!dateString) return false;
     const entryDate = new Date(dateString.replace(' ', 'T') + 'Z');
     const now = new Date();
-    const oneHour = 60 * 60 * 1000;
+    const oneHour = 60 * 60 * 1000 * 2; // 2 hours
     return (now.getTime() - entryDate.getTime()) < oneHour;
   };
 
